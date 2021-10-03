@@ -1,4 +1,13 @@
 This is a test run
-Please do every line
-I want this to work
-let's see if int status = blabla connect sockid struct addr addrsever^*& sizeof(addrserver)) ; too long for buff
+atus = blabla connect sockid struct addr addrsever^*& sizeof(addrserver)) ; too long for buff
+m.γώPlease do every line
+us = blabla connect sockid struct addr addrsever^*& sizeof(addrserver)) ; too long for buff
+m.γώI want this to work
+
+us = blabla connect sockid struct addr addrsever^*& sizeof(addrserver)) ; too long for buff
+m.γώ
+ want this to work
+
+us = blabla connect sockid struct addr addrsever^*& sizeof(addrserver)) ; too long for buff
+m.γώlet's see if int status = blabla connect sockid struct addr addrsever^*& sizeof(addrserver)) ; too long for buff
+m.γώ

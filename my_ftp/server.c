@@ -10,6 +10,69 @@
 #define WAITERS 1
 #define MAXLEN 511
 
+	//Return 0 on successful handshake
+	int handshake_server(int s, char *getter){
+		char initsess[MAXLEN] = "Hello, server";
+		int goodhello = 1;
+		//Gets message from client
+		recv(s, getter, MAXLEN, 0);
+		printf("Message from client: %s\n", getter);
+		getter[strcspn(getter, "\n")] = 0;
+		
+		//If message is correct, send an int to confirm server is ready for more data
+		if(strcmp(getter, initsess)){
+			fprintf(stderr, "Did not receive correct signal from client");
+			return 1;
+		}else{
+			puts("Hello received...replying");
+			//Make sure int is in n order
+			goodhello = htonl(goodhello);
+			send(s, &goodhello, sizeof(goodhello), 0);
+		}
+		return 0;
+	}
+	
+	//Returns 0 on success, sends confirmation to client before more data is received
+	int getfilen(int s, char *filen){
+		int gotname = 1;
+
+		//Receive a filename from the client	
+		recv(s, filen, MAXLEN, 0);
+		printf("Received filename from client: %s\n", filen);
+		
+		//Confirm filename was received
+		gotname = htonl(gotname);
+		send(s, &gotname, sizeof(gotname), 0);
+		
+		return 0;
+	}
+		
+	int getfileline(int s, char *getter){
+		int gotline = 1;
+		char endfile[MAXLEN] = "Goodbye, server";
+		char gotend[MAXLEN] = "Goodbye, client\n";
+		
+		//Receive a line from the client
+		recv(s, getter, MAXLEN, 0);
+		
+		//Compare line received to end message
+		char tempcomp[MAXLEN];
+		strcpy(tempcomp, getter);
+		tempcomp[strcspn(tempcomp, "\n")] = 0;
+			
+		if(!strcmp(endfile, tempcomp)){
+			puts("Client marked end of file...");
+			//Send client confirmation of end
+			send(s, gotend, strlen(gotend), 0);
+			return 1;
+		}else{
+			gotline = htonl(gotline);
+			send(s, &gotline, sizeof(gotline), 0);
+			return 0; 		
+		}
+	}
+		
+
 	int main(){
 		struct sockaddr_in addrport, addrcli;
 		int sockid = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -31,9 +94,8 @@
 		if(bind(sockid, (struct sockaddr *) &addrport, sizeof(addrport))!= -1) {
 			puts("Socket bound..");
 			
-			char initsess[MAXLEN] = "Hello, server";
-			char endsess[MAXLEN] = "Goodbye, server";
 			FILE *fp;
+			char filen[MAXLEN];
 
 			int status = listen(sockid, WAITERS);
 			for( ; ;){
@@ -42,46 +104,28 @@
 				puts("Connection established..");
 				
 				//Get init signal
-				recv(s, getter, MAXLEN, 0);
-				printf("%s\n", getter);
-				getter[strcspn(getter, "\n")] = 0;
-				send(s, sender, strlen(sender), 0);
-				int hewwo = strcmp(getter, initsess);
-				printf("%d\n", hewwo);
-				if(!strcmp(getter, initsess)){
-					printf("%s", getter);
+				if(!handshake_server(s, getter)){
 					//Receive filen
-					recv(s, getter, MAXLEN, 0);
-					printf("Writing file %s\n", getter);
-					send(s, sender, strlen(sender), 0);
+					getfilen(s, filen);
+					printf("Writing file %s\n", filen);
 
 					//Open file
-					fp = fopen(getter, "w");
+					fp = fopen(filen, "w");
 					if(fp == NULL){
 						fprintf(stderr, "Could not write file");
 						exit(1);
 					}
 					//Begin receiving lines to write
-					while(!strcmp(getter, endsess)){
-						recv(s, getter, MAXLEN, 0);
-						//Make sure they are not the end signal
-						if(!strcmp(getter, endsess)){
-							break;
-						}else{
-						//Write line to file
+					while(!getfileline(s, getter)){
 						fprintf(fp, "%s", getter);
 						}
-						//Send confirmation of receipt
-						send(s, sender, strlen(sender), 0);
 					}
 					fclose(fp);
 				}
-				send(s, sender, strlen(sender), 0);
 			}
 
 			int statusc = close(sockid);
 			close(s);
-		}
 	
 		return 0;
 	}

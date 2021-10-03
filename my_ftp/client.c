@@ -18,6 +18,29 @@
 		return *(unsigned int *)arr;
 	}
 */	
+	//Initializes transfer of info, waits until server is ready for filename, 0 on success	
+	int handshake_client(int sockid, char *sended){
+		//Servers success signal is 1	
+		int server_hello = 1;
+		int temp = 0;
+		
+		//Send a hello and receive the success signal
+		send(sockid, sended, strlen(sended), 0);
+		recv(sockid, &temp, MAXLEN, 0);
+		
+		//Make sure byte order
+		temp = ntohl(temp);
+		
+		//Verify success	
+		if(temp == server_hello){
+			puts("Server returned hello signal");
+			return 0;
+		}else{
+			fprintf(stderr, "Server did not return signal");
+			return 1;
+		}
+	}	
+
 	int main(int argc, char *argv[]){
 		struct sockaddr_in addrserv;
 		int sockid = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -61,27 +84,33 @@
 		//Init and end session codes
 		char sended[MAXLEN] = "Hello, server\n";
 		char endsended[MAXLEN] = "Goodbye, server\n";
-		char gotit[MAXLEN];	
+		int gotit = 0;	
+	
 		//Send preliminary hello
-		send(sockid, sended, strlen(sended), 0);
-			
+		int serverready = handshake_client(sockid, sended);
+
 		//Sends contents of a file
-		if(fp != NULL){
+		if(fp != NULL && !serverready){
 			//Send filen
 			send(sockid, filen, strlen(sended), 0);
 			puts("Sent filename");
-			recv(sockid, gotit, MAXLEN, 0);
+			recv(sockid, &gotit, MAXLEN, 0);
+			//Make sure bytes arrived in order
+			gotit = ntohl(gotit);	
+			
+			printf("%d\n", gotit);
+			if(gotit){
+				puts("Server received filen");
 
-//			printf("%s", gotit);
-//			puts("Server received filen");
-			while(fgets(buff, MAXLEN, fp)){
-				//Make gotit not gotit
-				strcpy(gotit, "Notgot");
-				//Send nextline
-				send(sockid, buff, strlen(buff), 0);
-				//See if server gotit
-				while(strcmp(gotit, "File received\n") != 0){
-					recv(sockid, gotit, MAXLEN, 0);
+				while(fgets(buff, MAXLEN, fp)){
+					gotit = 0;
+					//Send nextline
+					send(sockid, buff, strlen(buff), 0);
+					//See if server gotit
+					while(!gotit){
+						recv(sockid, &gotit, MAXLEN, 0);
+						gotit = ntohl(gotit);
+					}
 				}
 			}
 			fclose(fp);

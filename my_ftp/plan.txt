@@ -1,2 +1,25 @@
-Send a beginning and end signal for each connection
-Write file received, serverside
+Create socket port 4414 any in address, setup struct for client
+
+bind socket
+
+receive an initialization signal from the client
+
+send a confirmation from the server
+
+receive the filename from the client
+
+send a confirmation from the server
+
+receive the first line of a file from the client
+
+write the file on the local server
+
+send a confirmation from the server
+
+repeat 13-17 as needed
+
+receive an ending signal from the client
+
+close the connection
+
+ 
