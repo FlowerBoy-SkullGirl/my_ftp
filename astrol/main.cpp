@@ -27,6 +27,12 @@ using namespace std;
 				}
 				return info.uptime;
 			}
+		
+			//This is placeholder
+			void getsysname(string sysname){
+				sysname += "hostname";
+			}	
+			
 
 
 /* fuck apple		#elif __APPLE__
@@ -178,18 +184,35 @@ using namespace std;
 			return moon;
 		}
 		
+		string use_cipher(string cipher, string password){
+			
+			cout << "Length " << password.length() << endl;
+
+			for(int i = 0; i < (password.length() - 1) ; i++){
+				cout << "scrambling.." << endl;
+				password[i] += cipher[i];
+				cout << password[i] << endl << cipher[i] << endl;
+			}
+			return password;
+		}
+		
 		int main(int argc, char **argv){
 			long uptime;
 			int sun;
 			int moon;
 			string cipher;
+			string reading;
 		
 			//If user passes an argument, use it as a cipher, else use the host name
 			if(argc > 1){	
-				cipher += getcipher(argv[1]);
-			}else{
-				cipher += getsysname();
+				cipher += argv[1];
+			}else{//Needs to be fixed	
+				string sysname;
+				getsysname(sysname);
+
+				cipher += sysname;
 			}
+			cout << "Cipher is " << cipher << endl;
 
 			//get uptime in seconds
 			uptime = s_uptime();
@@ -218,7 +241,15 @@ using namespace std;
 			moon = getmoon(uptime);
 
 			cout << "Moon is: " << moon << endl;
+				
+			stringstream stream;
+			stream << sun << realMonth << realMonthday << moon;
+			
+			reading += stream.str();
+			reading = use_cipher(cipher, reading);	
 
+			cout << reading << endl;
+			
 			return 0;
 		}		
 		//Compare uptime month, day, and hour into zodiac signs
