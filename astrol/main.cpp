@@ -1,9 +1,19 @@
+/*
+	Astrology Password
+	Description: Uses your computer's uptime and system name as a "sign" and mushes them together to create a semi-random password
+	Arguments: Takes a single argument "system name" or any cipher you wish to use
+	Author: Damean Murphy-Short
+	Version: 1.0
+
+*/
 #include <iostream>
 #include <string>
 #include <iomanip>
 #include <time.h>
 
 using namespace std;
+
+#define MAXLEN 255
 
 
 		//Determine OS
@@ -14,10 +24,28 @@ using namespace std;
 				long uptime = GetTickCount64();
 				return uptime;
 			}	
+
+			string getsysname(string sysname){
+				#define INFO_BUFFER_SIZE 32767
+				
+				TCHAR infoBuf[INFO_BUFFER_SIZE];
+				DWORD bufCharCount = INFO_BUFFER_SIZE;
+				string placeholder = "System_name";	
+				
+				if( GetComputerName(infoBuf, &bufCharCount) ){
+					sysname += infoBuf;
+					return sysname;
+				}else{
+					sysname += placeholder;
+					return sysname;
+				}
+			}
 		#elif __linux__
 			#include <linux/unistd.h>
 			#include <linux/kernel.h> 
 			#include <sys/sysinfo.h>
+			#include <limits.h>
+			#include <unistd.h>
 
 			long s_uptime(){
 				struct sysinfo info;
@@ -28,9 +56,14 @@ using namespace std;
 				return info.uptime;
 			}
 		
-			//This is placeholder
-			void getsysname(string sysname){
-				sysname += "hostname";
+			//This gets hostname from linux and puts in c++ string 
+			string getsysname(string sysname){
+				char hostname[MAXLEN];
+				gethostname(hostname, MAXLEN);
+				cout << "system hostname is " << hostname << endl;
+				sysname += hostname;
+				
+				return sysname;
 			}	
 			
 
@@ -53,6 +86,23 @@ using namespace std;
 
 		#endif	
 		
+		//An array of strings for actual sign names
+		string realSign[12] = {
+		"Aquarius",
+		"Pisces",
+		"Aries",
+		"Taurus",
+		"Gemini",
+		"Cancer",
+		"Leo",
+		"Virgo",
+		"Libra",
+		"Scorpio",
+		"Sagittarius",
+		"Capricorn"
+		};
+
+
 		//Get the passed argument into a string
 		string getcipher(char *input){
 			string dest;
@@ -184,31 +234,84 @@ using namespace std;
 			return moon;
 		}
 		
+
+/*
+33 !                         1
+35-38 # $ % &                5
+42 *                         6
+48-57 0 1 2 3 4 5 6 7 8 9   16
+64 @                        17
+65-90 UPPER                 43
+94 ^                        44
+97-122 lower                70
+*/
 		string use_cipher(string cipher, string password){
-			
-			cout << "Length " << password.length() << endl;
+			int y = 0;
 
 			for(int i = 0; i < (password.length() - 1) ; i++){
+				y = 0;
 				cout << "scrambling.." << endl;
 				password[i] += cipher[i];
+				//Make sure password is not above approved range
+				if(password[i] > 122){
+					password[i] %= 122;
+				}
+				if(password[i] < 33){
+					while(password[i] < 33){
+						y++;
+						password[i] += (cipher[i] + y);
+						if(password[i] > 122){
+							password[i] %= 122;
+						}
+					}
+				}
+				if(password[i] == 34){
+					password[i]--;
+				}
+				if( (password[i] > 38 && password[i] < 48 && !(password[i] == 42)) || (password[i] > 57 && password[i] < 64) || (password[i] < 97 && password[i] > 90 && !(password[i] == 94)) ){
+					int ucase = 0;
+					int letter = 0;
+					letter = password[i] % 26;
+					ucase = password[i] % 2;
+					if(ucase){
+						password[i] = letter + 65;
+					}else{
+						password[i] = letter + 97;
+					}
+				}
 				cout << password[i] << endl << cipher[i] << endl;
 			}
-			return password;
+						return password;
 		}
 		
+
+		string constraint_special(string password){
+			char temp;
+			//Ensure first character is a letter, as is required by some passwords
+			while( password[0] < 65 || (password[0] > 90 && password[0] <97) ){
+				temp = password[0];
+				password = password.substr(1);
+				password += temp;	
+			}
+			
+			return password;	
+		}
+
+
 		int main(int argc, char **argv){
 			long uptime;
 			int sun;
 			int moon;
 			string cipher;
-			string reading;
+			string readingStr;
+			string readingNum;
 		
 			//If user passes an argument, use it as a cipher, else use the host name
 			if(argc > 1){	
 				cipher += argv[1];
-			}else{//Needs to be fixed	
+			}else{
 				string sysname;
-				getsysname(sysname);
+				sysname = getsysname(sysname);
 
 				cipher += sysname;
 			}
@@ -235,20 +338,28 @@ using namespace std;
 			int realMonthday = signdate.tm_mday;	
 			
 			sun = getsun(realMonthday, realMonth);
-			cout << "Sun sign is: " << sun << endl;
+			cout << "Sun sign is: " << realSign[sun] << endl;
 			cout << realMonth << " " << realMonthday << endl;
 
 			moon = getmoon(uptime);
 
-			cout << "Moon is: " << moon << endl;
+			cout << "Moon is: " << realSign[moon] << endl;
 				
+			stringstream uppies;
+			uppies << uptime;
+			readingStr += realSign[sun];
+			
+			readingStr = use_cipher(uppies.str(), readingStr);
+
 			stringstream stream;
 			stream << sun << realMonth << realMonthday << moon;
 			
-			reading += stream.str();
-			reading = use_cipher(cipher, reading);	
+			readingNum += stream.str();
+			readingNum = use_cipher(cipher, readingNum);	
+			
+			readingStr = constraint_special(readingStr);
 
-			cout << reading << endl;
+			cout << readingStr << readingNum << endl;
 			
 			return 0;
 		}		
