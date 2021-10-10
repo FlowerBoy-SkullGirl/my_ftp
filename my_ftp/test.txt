@@ -1,13 +1,5 @@
-This is a test run
-atus = blabla connect sockid struct addr addrsever^*& sizeof(addrserver)) ; too long for buff
-m.γώPlease do every line
-us = blabla connect sockid struct addr addrsever^*& sizeof(addrserver)) ; too long for buff
-m.γώI want this to work
-
-us = blabla connect sockid struct addr addrsever^*& sizeof(addrserver)) ; too long for buff
-m.γώ
- want this to work
-
-us = blabla connect sockid struct addr addrsever^*& sizeof(addrserver)) ; too long for buff
-m.γώlet's see if int status = blabla connect sockid struct addr addrsever^*& sizeof(addrserver)) ; too long for buff
-m.γώ
+Put lines here now
+Hopefully
+here now
+This will work maybe
+I gotta hope so #^Q(#*

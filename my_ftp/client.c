@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define MAXLEN 511
+#define MAXLEN 2047
 	
 /*	unsigned int inet_addr(char *str){
 		int a, b, c, d;
@@ -93,12 +93,12 @@
 		if(fp != NULL && !serverready){
 			//Send filen
 			send(sockid, filen, strlen(sended), 0);
-			puts("Sent filename");
+			printf("Sent filename: %s\n", filen);
 			recv(sockid, &gotit, MAXLEN, 0);
 			//Make sure bytes arrived in order
 			gotit = ntohl(gotit);	
 			
-			printf("%d\n", gotit);
+			printf("Server returned: %d\n", gotit);
 			if(gotit){
 				puts("Server received filen");
 
@@ -106,10 +106,14 @@
 					gotit = 0;
 					//Send nextline
 					send(sockid, buff, strlen(buff), 0);
+					printf("Sent: %s\n", buff);
+					
 					//See if server gotit
 					while(!gotit){
 						recv(sockid, &gotit, MAXLEN, 0);
 						gotit = ntohl(gotit);
+						
+						printf("Server received line: %d\n", gotit);
 					}
 				}
 			}
@@ -117,10 +121,12 @@
 		}
 		//Send endliminary goodbye
 		send(sockid, endsended, strlen(endsended), 0);
+			
+		printf("Sent server goodbye message\n");
 		
 		//Receive server's confirmation
 		recv(sockid, recieveded, MAXLEN, 0);
-		printf("%s", recieveded);
+		printf("%s\n", recieveded);
 
 		//close connection
 		int statusc = close(sockid);

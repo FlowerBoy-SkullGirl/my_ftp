@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 #define WAITERS 1
-#define MAXLEN 511
+#define MAXLEN 2047
 
 	//Return 0 on successful handshake
 	int handshake_server(int s, char *getter){
@@ -54,7 +54,8 @@
 		
 		//Receive a line from the client
 		recv(s, getter, MAXLEN, 0);
-		
+	
+		printf("Line: %s\n", getter);	
 		//Compare line received to end message
 		char tempcomp[MAXLEN];
 		strcpy(tempcomp, getter);
