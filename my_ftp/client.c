@@ -85,6 +85,7 @@
 		char sended[MAXLEN] = "Hello, server\n";
 		char endsended[MAXLEN] = "Goodbye, server\n";
 		int gotit = 0;	
+		int length_sent = 0;
 	
 		//Send preliminary hello
 		int serverready = handshake_client(sockid, sended);
@@ -104,6 +105,21 @@
 
 				while(fgets(buff, MAXLEN, fp)){
 					gotit = 0;
+
+					//Send length of str
+					length_sent = strlen(buff);
+					length_sent = htonl(length_sent);
+					send(sockid, &length_sent, sizeof(length_sent), 0);
+
+					//Receive confirmation
+					while(!gotit){
+						recv(sockid, &gotit, MAXLEN, 0);
+						gotit = ntohl(gotit);
+						
+						printf("Server received line: %d\n", gotit);
+					}
+					gotit = 0;
+					
 					//Send nextline
 					send(sockid, buff, strlen(buff), 0);
 					printf("Sent: %s\n", buff);
@@ -119,6 +135,21 @@
 			}
 			fclose(fp);
 		}
+		//Send length of str
+		length_sent = strlen(endsended);
+		length_sent = htonl(length_sent);
+		send(sockid, &length_sent, sizeof(length_sent), 0);
+
+		//Receive confirmation
+		while(!gotit){
+			recv(sockid, &gotit, MAXLEN, 0);
+			gotit = ntohl(gotit);
+				
+			printf("Server received line: %d\n", gotit);
+		}
+		gotit = 0;
+					
+
 		//Send endliminary goodbye
 		send(sockid, endsended, strlen(endsended), 0);
 			

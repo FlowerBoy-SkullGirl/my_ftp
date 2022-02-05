@@ -3,7 +3,7 @@
 #include <string.h>
 
 #define STRSIZE 32
-#define STCTSIZE 2
+#define STCTSIZE 3
 #define SIGDIG 2
 #define MAXD 256	
 #define FILENAME "financr_info.txt"
@@ -20,7 +20,7 @@
 		int y = 0;
 		
 		//Malloc for temp
-		temp = malloc(MAXD+1);
+		temp = malloc(MAXD);
 
 		//Go to end of str
 		while( (*(dest+i) != '\0' ) ){
@@ -125,7 +125,7 @@
 			fp = fopen(filen, "w");	
 			
 			i=0;
-			while(i<=STCTSIZE){
+			while(i<STCTSIZE){
 				fputs("0\n", fp);
 				i++;
 			}
@@ -147,10 +147,10 @@
 		fclose(fp);
 
 		//Test that info was full
-		if(i<STCTSIZE){
+		if(i<STCTSIZE-1){
 			fp = fopen(filen, "w");
 			i = 0;
-			while(i <= STCTSIZE){
+			while(i < STCTSIZE){
 				fputs("0\n", fp);
 				i++;
 			}
@@ -240,7 +240,7 @@
 			fputs("Bad pointer\n", stderr);
 			exit(0);
 		}
-		while(i<=STCTSIZE){
+		while(i<STCTSIZE){
 		//	fputs(buff[i], fp);
 			fprintf(fp, "%s\n", buff[i]);
 			printf("%s\n%d\n", buff[i], i);

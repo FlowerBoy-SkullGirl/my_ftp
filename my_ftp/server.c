@@ -47,13 +47,38 @@
 		return 0;
 	}
 		
+	int getstrlen(int s){
+		int length_recv = 0;
+		//get length of str
+		recv(s, &length_recv, sizeof(length_recv), 0);
+		//convert to host
+		length_recv = ntohl(length_recv);	
+	
+		//return
+		return length_recv;
+	}
+
 	int getfileline(int s, char *getter){
 		int gotline = 1;
 		char endfile[MAXLEN] = "Goodbye, server";
 		char gotend[MAXLEN] = "Goodbye, client\n";
-		
+		int length_recv = 0;
+
+		//Receive strlen
+		length_recv = getstrlen(s);
+		//reply
+		gotline = htonl(gotline);
+		send(s, &gotline, sizeof(gotline), 0);
+
 		//Receive a line from the client
 		recv(s, getter, MAXLEN, 0);
+		//Add the null terminator
+		*(getter + length_recv) = '\0';
+
+		//Reply
+		gotline = htonl(gotline);
+		send(s, &gotline, sizeof(gotline), 0);
+
 	
 		printf("Line: %s\n", getter);	
 		//Compare line received to end message
