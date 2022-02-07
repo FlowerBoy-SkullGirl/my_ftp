@@ -77,6 +77,8 @@
 		addrserv.sin_port = htons(4414);
 		addrserv.sin_addr.s_addr = inet_addr(str);
 		
+		printf("Connecting to %s\n", str);
+
 		//Try connect to server
 		int status = connect(sockid, (struct sockaddr *) &addrserv, sizeof(addrserv));
 		
