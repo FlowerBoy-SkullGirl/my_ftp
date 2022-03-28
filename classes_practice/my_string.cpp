@@ -20,6 +20,8 @@ istream &operator >> (istream &strm, my_string &dest){
 	strm >> src;
 	
 	dest = src;
+	
+	delete[] src;
 
 	return strm;
 }
