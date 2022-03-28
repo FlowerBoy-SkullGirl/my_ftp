@@ -24,7 +24,11 @@ struct usrList{
 //Argument 1 is the head of the list. Argument 2 will be the uname of the List node
 void push_usrList(struct usrList *head, char *src)
 {
-	
+	if (head == NULL){
+		head = malloc(sizeof(struct usrList));
+		head->next = NULL;
+		head->uname = NULL;
+	}
 	if (head->next != NULL){
 		push_usrList(head->next, src);
 	}else{
@@ -33,6 +37,7 @@ void push_usrList(struct usrList *head, char *src)
 			fprintf(stderr, "No malloc usrList push");
 			exit(0);
 		}
+		np->next = NULL;
 		np->uname = malloc(strlen(src)+1);
 		if (np->uname == NULL){
 			fprintf(stderr, "No malloc usrname push");
@@ -45,17 +50,18 @@ void push_usrList(struct usrList *head, char *src)
 		else
 			head->next = np;
 	}
-
 }
 
 //Function will pop entire list and deallocate memory along the way
 void pop_usrList(struct usrList *head)
 {
+	puts("Popping");
 	if (head->next != NULL)
 		pop_usrList(head->next);
-
-	free(head->uname);
-	free(head);
+	if (head != NULL){
+		free(head->uname);
+		free(head);
+	}
 }
 
 /*
@@ -74,22 +80,28 @@ int parse_usr(char *src)
 	while (*(src) != '\0' && i < 1){
 		if (*(src) == ':')
 			i++;
-		temp[j++] = *(src++);
+		else
+			temp[j++] = *(src);
+		src++;
 	}
 	//No increment necessary, as this replaces the colon
 	temp[j] = '\0';
+	printf("%s\n", temp);
 	j = 0;
 
 	while (*(src) != '\0' && i < 3){
 		if (*(src) == ':')
 			i++;
-		temp_uid[j++] = *(src++);
+		if (i >= 2 && *src != ':')
+			temp_uid[j++] = *(src);
+		src++;
 	}
 	temp_uid[j] = '\0';
-	
+	printf("%s\n", temp_uid);
 	//USR_RANGE determines which UIDs containt human users, then we copy that uname to src
 	if (atoi(temp_uid) > USR_RANGE_MIN && atoi(temp_uid) < USR_RANGE_MAX){
-		strcpy(temp, src);
+		strcpy(src, temp);
+		printf("%s\n", src);
 		return 1;
 	}
 
@@ -102,12 +114,16 @@ int parse_usr(char *src)
  */
 struct usrList *fetch_usrs()
 {
-	struct usrList *np;
+	struct usrList *np = NULL;
 	FILE *fp;
 	char buf[MAX_STR];
 
 	fp = fopen(USR_FILE, "r");
-	
+	if (fp == NULL){
+		fprintf(stderr, "Could not open file\n");
+		exit(0);
+	}
+
 	while (fgets(buf, MAX_STR, fp)){
 		if (parse_usr(buf))
 			push_usrList(np, buf);	
@@ -130,7 +146,8 @@ int count_list(struct usrList *np)
 //Replace this with curses after testing
 void display_usrList(struct usrList *head)
 {
-	while (head->next != NULL){
+	puts("Displaying");
+	while (head->next != NULL && head != NULL){
 		printf("%s\n", head->uname);
 		head = head->next;
 	}

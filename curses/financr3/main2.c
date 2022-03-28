@@ -20,14 +20,14 @@
 		"4. Exit",
 	};
 
-	int main(){
-		
+	int main()
+	{
 		WINDOW *menu_win;
 		WINDOW *pickwin1;
 		int highlight = 1;
 		int choice = 0;
 		
-		double debitcount = 0.0;
+		float debitcount = 0.0;
 		char *input;
 		input = malloc(MAX_SIZE_STRING);
 
@@ -112,9 +112,8 @@
 		return 0;
 	}
 
-
-	void print_menu(WINDOW *menu_win, int highlight){
-
+	void print_menu(WINDOW *menu_win, int highlight)
+	{
 		int a, b, c;
 
 		a = 2;
@@ -127,8 +126,7 @@
 				wattron(menu_win, A_REVERSE);
 				mvwprintw(menu_win, b, a, "%s", menu[c]);
 				wattroff(menu_win, A_REVERSE);
-			}
-			else{ //Print all the other choices normally
+			}else{ //Print all the other choices normally
 				mvwprintw(menu_win, b, a, "%s", menu[c]);
 			}
 			++b; //Increment y level to print on
