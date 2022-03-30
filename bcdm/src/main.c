@@ -50,10 +50,13 @@ struct usrList *push_usrList(struct usrList *head, char *src)
 		}
 		strcpy(np->uname, src);
 
-		if (head->uname == NULL)
+		if (head->uname == NULL){
+			free(head);
+			head = NULL;
 			head = np;
-		else
+		}else{
 			head->next = np;
+		}
 	}
 	return head;
 }
