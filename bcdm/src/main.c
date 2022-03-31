@@ -26,41 +26,36 @@ struct usrList{
 	char *uname;
 };
 
+struct usrList *newnode(char *src)
+{
+	struct usrList *np = malloc(sizeof(struct usrList));
+	if (np == NULL){
+		fprintf(stderr, "Could not malloc node\n");
+		exit(0);
+	}
+
+	np->uname = malloc(strlen(src) + 1);
+	if (np == NULL){
+		fprintf(stderr, "Could not malloc name\n");
+		exit(0);
+	}
+
+	strcpy(np->uname, src);
+	np->next = NULL;
+
+	return np;
+} 
+
 //Argument 1 is the head of the list. Argument 2 will be the uname of the List node
 struct usrList *push_usrList(struct usrList *head, char *src)
 {
-	if (head == NULL){
-		head = malloc(sizeof(struct usrList));
-		head->next = NULL;
-		head->uname = NULL;
-	}
-	if (head->next != NULL){
-		head->next = push_usrList(head->next, src);
-	}else{
-		struct usrList *np = malloc(sizeof(struct usrList));
-		if (np == NULL){
-			fprintf(stderr, "No malloc usrList push");
-			exit(0);
-		}
-		np->next = NULL;
-		np->uname = malloc(strlen(src)+1);
-		if (np->uname == NULL){
-			fprintf(stderr, "No malloc usrname push");
-			exit(0);
-		}
-		strcpy(np->uname, src);
+	if (head == NULL)
+		head = newnode(src);
+	else
+		push_usrList(head->next, src);
 
-		if (head->uname == NULL){
-			free(head);
-			head = NULL;
-			head = np;
-		}else{
-			head->next = np;
-		}
-	}
 	return head;
 }
-
 //Function will pop entire list and deallocate memory along the way
 void pop_usrList(struct usrList *head)
 {
@@ -197,15 +192,17 @@ int menu_usrList(struct usrList *np)
 	int usrcount = count_list(np);
 	int x = (80 - WIDTH) / 2;
 	int y = (24 - HEIGHT) / 2;
-	int ch;
+	int ch = 0;
 	
 	initscr();
 	noecho();
 	cbreak();
 	
 	clear();
-	keypad(usrs, TRUE);
 	usrs = newwin(HEIGHT, WIDTH, y, x);
+
+	keypad(usrs, TRUE);
+
 	while (choice == 0){
 		display_usrList(np, usrs, highlight, usrcount);
 		while(ch = wgetch(usrs)){
