@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ncurses.h>
+#include <sys/types.h>
+#include <pwd.h>
 
 //CONSTANTS
 #define MAX_STR 256
@@ -24,9 +26,10 @@
 struct usrList{
 	struct usrList *next;
 	char *uname;
+	uid_t usrid;
 };
 
-struct usrList *newnode(char *src)
+struct usrList *newnode(char *src, int uid_int)
 {
 	struct usrList *np = malloc(sizeof(struct usrList));
 	if (np == NULL){
@@ -39,20 +42,21 @@ struct usrList *newnode(char *src)
 		fprintf(stderr, "Could not malloc name\n");
 		exit(0);
 	}
-
+	
 	strcpy(np->uname, src);
+	np->usrid = uid_int;
 	np->next = NULL;
 
 	return np;
 } 
 
 //Argument 1 is the head of the list. Argument 2 will be the uname of the List node
-struct usrList *push_usrList(struct usrList *head, char *src)
+struct usrList *push_usrList(struct usrList *head, char *src, int uid_int)
 {
 	if (head == NULL)
-		head = newnode(src);
+		head = newnode(src, uid_int);
 	else
-		push_usrList(head->next, src);
+		head->next = push_usrList(head->next, src, uid_int);
 
 	return head;
 }
@@ -73,7 +77,7 @@ void pop_usrList(struct usrList *head)
 }
 
 /*
- *Returns 1 upon finding username, 0 upon finding a system user. 
+ *Returns uid upon finding username, 0 upon finding a system user. 
  *Takes one line of MAX_STR length as argument
  *Format is uname:passwd:UID:etc:etc:irrelevant\0
  *If line contains user, changes src to username.
@@ -106,7 +110,7 @@ int parse_usr(char *src)
 	//USR_RANGE determines which UIDs containt human users, then we copy that uname to src
 	if (atoi(temp_uid) > USR_RANGE_MIN && atoi(temp_uid) < USR_RANGE_MAX){
 		strcpy(src, temp);
-		return 1;
+		return atoi(temp_uid);
 	}
 
 	return 0;
@@ -121,16 +125,17 @@ struct usrList *fetch_usrs()
 	struct usrList *np = NULL;
 	FILE *fp;
 	char buf[MAX_STR];
+	int uid_int = 0;
 
 	fp = fopen(USR_FILE, "r");
 	if (fp == NULL){
 		fprintf(stderr, "Could not open file\n");
 		exit(0);
 	}
-
+	
 	while (fgets(buf, MAX_STR, fp)){
-		if (parse_usr(buf)){
-			np = push_usrList(np, buf);	
+		if (uid_int = parse_usr(buf)){
+			np = push_usrList(np, buf, uid_int);	
 		}
 	}
 	
@@ -207,7 +212,7 @@ int menu_usrList(struct usrList *np)
 		display_usrList(np, usrs, highlight, usrcount);
 		while(ch = wgetch(usrs)){
 			switch(ch){
-			case 65: //key_up
+			case KEY_UP: //key_up
 				if(highlight == 1){
 					highlight = usrcount; //loop menu to bottom
 				}
@@ -215,7 +220,7 @@ int menu_usrList(struct usrList *np)
 					--highlight;
 				}
 				break;
-			case 66: //key_down
+			case KEY_DOWN: //key_down
 				if(highlight == usrcount){
 					highlight = 1; //loop menu back to top
 				}
@@ -239,11 +244,88 @@ int menu_usrList(struct usrList *np)
 	return choice;
 }
 
+/*
+ * Displays window for user to input password
+ */
+int display_passwd_win(struct passwd *pwd, struct usrList *np)
+{
+	char input[MAX_STR];
+	WINDOW *pass;
+	int highlight = 1;
+	int choice = 0;
+	int x = (80 - WIDTH) / 2;
+	int y = (24 - HEIGHT) / 2;
+	int ch = 0;
+	
+	initscr();
+	noecho();
+	cbreak();
+	
+	clear();
+	pass = newwin(HEIGHT, WIDTH, y, x);
+
+	keypad(pass, TRUE);
+
+	echo();
+	mvprintw(y, x, "Password:");
+	getstr(input);
+	noecho();
+	wrefresh(pass);
+
+	if (!strcmp(input, pwd->pw_passwd))
+		return 1;
+	else
+		return 0;
+}
+
+/*
+ * Iterates the usrlist i times to find the chosen user
+ * Returns a pointer to said user struct
+ */
+struct usrList *get_usr_index(int index, struct usrList *np)
+{
+	struct usrList *choice = NULL;
+	choice = np;
+	for (int i = 1; i < index; i++){
+		if (choice->next != NULL)
+			choice = choice->next;
+	}
+	return choice;
+}
+
+/*
+ * Returns 1 on success and 0 on failure
+ * Iterates to the correct user choice, calls PAM to get the password
+ */
+int get_password_uid(int usrlist_index, struct usrList *head)
+{
+	struct passwd *pwd;
+	struct usrList *np = get_usr_index(usrlist_index, head);
+	if (np == NULL){
+		fprintf(stderr, "No user to fetch passwd\n");
+		exit(0);
+	}
+	pwd = getpwuid(np->usrid);
+	if (pwd == NULL){
+		fprintf(stderr, "NULL pwd\n");
+		exit(0);
+	}/*else if(pam_authenticate(pamh, 0) != PAM_SUCCESS){
+		return 0;
+	}
+	*/	
+	fprintf(stdout, "%s\n", pwd->pw_passwd);
+	return display_passwd_win(pwd, np);
+}
 int main()
 {
 	struct usrList *np = fetch_usrs();
 	
-	menu_usrList(np);
+	int usr_choice = 0;
+	int logged_in = 0;
+	while (!logged_in){	
+		usr_choice = menu_usrList(np);
+		logged_in = get_password_uid(usr_choice, np);
+	}
 
 	//Essential to deallocate used memory!!
 	pop_usrList(np);
