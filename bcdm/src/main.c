@@ -12,6 +12,8 @@
 #include <ncurses.h>
 #include <sys/types.h>
 #include <pwd.h>
+#include <security/pam_appl.h>
+#include <security/pam_misc.h>
 
 //CONSTANTS
 #define MAX_STR 256
@@ -27,6 +29,11 @@ struct usrList{
 	struct usrList *next;
 	char *uname;
 	uid_t usrid;
+};
+
+static struct pam_conv conv = {
+	misc_conv,
+	NULL
 };
 
 struct usrList *newnode(char *src, int uid_int)
@@ -247,7 +254,7 @@ int menu_usrList(struct usrList *np)
 /*
  * Displays window for user to input password
  */
-int display_passwd_win(struct passwd *pwd, struct usrList *np)
+int display_passwd_win(pam_handle_t *pamh, struct usrList *np)
 {
 	char input[MAX_STR];
 	WINDOW *pass;
@@ -268,14 +275,14 @@ int display_passwd_win(struct passwd *pwd, struct usrList *np)
 
 	echo();
 	mvprintw(y, x, "Password:");
-	getstr(input);
+	if(pam_authenticate(pamh, 0) != PAM_SUCCESS){
+		fprintf(stderr, "Could not auth\n");
+		return 0;
+	}
 	noecho();
 	wrefresh(pass);
 
-	if (!strcmp(input, pwd->pw_passwd))
-		return 1;
-	else
-		return 0;
+	return 1;
 }
 
 /*
@@ -299,22 +306,20 @@ struct usrList *get_usr_index(int index, struct usrList *np)
  */
 int get_password_uid(int usrlist_index, struct usrList *head)
 {
-	struct passwd *pwd;
+	pam_handle_t *pamh = NULL;
+	int ret = 0;
 	struct usrList *np = get_usr_index(usrlist_index, head);
 	if (np == NULL){
 		fprintf(stderr, "No user to fetch passwd\n");
 		exit(0);
 	}
-	pwd = getpwuid(np->usrid);
-	if (pwd == NULL){
-		fprintf(stderr, "NULL pwd\n");
-		exit(0);
-	}/*else if(pam_authenticate(pamh, 0) != PAM_SUCCESS){
+
+	if (ret = pam_start("sudo", np->uname, &conv, &pamh) != PAM_SUCCESS){
+		fprintf(stderr, "Could not start pam\n");
 		return 0;
 	}
-	*/	
-	fprintf(stdout, "%s\n", pwd->pw_passwd);
-	return display_passwd_win(pwd, np);
+
+	return display_passwd_win(pamh, np);
 }
 int main()
 {

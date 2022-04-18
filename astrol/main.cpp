@@ -11,7 +11,9 @@
 #include <iomanip>
 #include <time.h>
 
-using namespace std;
+using std::cout;
+using std::cin;
+using std::string;
 
 #define MAXLEN 255
 
@@ -19,7 +21,7 @@ using namespace std;
 		//Determine OS
 		//Use OS-calls to determine uptime
 		#ifdef _WIN32
-			#include <windows>
+			#include <windows.h>
 			long s_uptime(){
 				long uptime = GetTickCount64();
 				return uptime;
@@ -86,6 +88,8 @@ using namespace std;
 
 		#endif	
 		
+		using namespace std;
+
 		//An array of strings for actual sign names
 		string realSign[12] = {
 		"Aquarius",

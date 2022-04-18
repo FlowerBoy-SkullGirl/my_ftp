@@ -1,6 +1,6 @@
 objects = main.o
 compiler = cc
-libraries = lncurses
+libraries = lncurses -lpam -lpam_misc
 
 test: main.c
 	g$(compiler) -o test main.c -$(libraries) 
