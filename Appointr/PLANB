@@ -1,0 +1,11 @@
+Appointment
+	Has a time
+	Has a date
+	Has a place
+	*Involves people
+
+People
+	Have identifying info
+	Have a schedule
+		Schedules HAVE appointments
+

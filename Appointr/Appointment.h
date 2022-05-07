@@ -11,6 +11,7 @@ class Appointment{
 	private:
 		My_Date date;
 		My_Time time_day;
+		int room_num;
 		
 	public:
 		//Constructor
@@ -23,6 +24,7 @@ class Appointment{
 		//Mutators
 		void set_date(My_Date newDate);
 		void set_timeday(My_Time newTime);
+		void set_room(int roomnum);
 }
 
 #endif
