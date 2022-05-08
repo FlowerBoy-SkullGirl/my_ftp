@@ -20,6 +20,6 @@ class My_Time{
 		//Mutator
 		void set_hour(int h);
 		void set_minute(int m);
-}
+};
 
 #endif

@@ -20,5 +20,6 @@ class Schedule{
 		//Mutate
 		void add_appt(Appointment &appt);
 		void rem_appt(Appointment &appt);
-		
+
+};		
 #endif

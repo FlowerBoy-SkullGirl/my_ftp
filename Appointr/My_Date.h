@@ -27,5 +27,5 @@ class My_Date{
 		void set_month(int mon);
 		void set_year(int y);
 
-}
+};
 #endif
