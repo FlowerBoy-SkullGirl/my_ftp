@@ -13,6 +13,7 @@ class Schedule{
 	public:
 		//Access
 		vector<Appointment>::iterator appt_at(int subscript);
+		vector<Appointment>::iterator find(Appointment appt);
 		vector<Appointment>::iterator container_begin();
 		vector<Appointment>::iterator container_end();
 		bool contains(Appointment appt);

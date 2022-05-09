@@ -52,17 +52,17 @@ void Person::set_last_name(String name)
 	*this.last_name = name;
 }
 
-void Person::set_(String addr)
+void Person::set_address(String addr)
 {
 	*this.address = addr;
 }
 
-void Person::set_(String phoneNum)
+void Person::set_phone(String phoneNum)
 {
 	*this.phone = phoneNum;
 }
 
-void Person::set_(int id_num)
+void Person::set_id(int id_num)
 {
 	if (id_num >= MIN_ID)
 		*this.id = id_num;

@@ -48,6 +48,27 @@ int Appointment::get_client()
 	return *this.client_id;
 }
 
+//Finds overlaps in time against another appointment
+bool Appointment::time_overlaps(Appointment appt)
+{
+	int starttime_this = this->time_in_minutes(); 
+	int endtime_this = this->get_duration() + this->time_in_minutes(); 
+	
+	int starttime_appt = appt.time_in_minutes();
+	int endtime_appt = appt.time_in_minutes() + appt.get_duration();
+	
+	if (endtime_appt > starttime_this)
+		return true;
+	if (endtime_this > starttime_appt)
+		return true;
+	return false; 
+}
+
+int Appointment::time_in_minutes()
+{
+	return ((this->get_timeday().get_hour() * 60) + this->get_timeday().get_minute());
+}
+
 //Mutators
 void Appointment::set_date(int _date)
 {

@@ -25,6 +25,12 @@ class Appointment{
 		//Accessors
 		My_Date get_date();
 		My_Time get_timeday();
+		int get_duration();
+		int get_room();
+		int get_employee();
+		int get_client();
+		bool time_overlaps(Appointment appt);
+		int time_in_minutes();
 		
 		//Mutators
 		void set_date(My_Date newDate);
