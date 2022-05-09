@@ -11,6 +11,10 @@ class My_Date{
 		int w_day;
 		int month;
 		int year;
+		
+		//sub 0 will be used for february on leap years
+		int[13] mday_MAX = {29,31,28,31,30,31,30,31,31,30,31,30,31}
+
 	public:
 		//Constructor
 		My_Date(int mday, int wday, int mon, int _year);
@@ -20,10 +24,11 @@ class My_Date{
 		int get_wday();
 		int get_month();
 		int get_year();
+		bool is_leap();
 
 		//Mutators
 		void set_mday(int day);
-		void set_wday(int day);
+		void set_wday();
 		void set_month(int mon);
 		void set_year(int y);
 
