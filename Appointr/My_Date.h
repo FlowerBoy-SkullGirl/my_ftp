@@ -2,7 +2,7 @@
 #include <string>
 
 #ifndef MY_DATE_H
-#define MY_DATE
+#define MY_DATE_H
 
 class My_Date{
 	
@@ -13,14 +13,14 @@ class My_Date{
 		int year;
 		
 		//sub 0 will be used for february on leap years
-		int[13] mday_MAX = {29,31,28,31,30,31,30,31,31,30,31,30,31}
+		int mday_MAX[13] = {29,31,28,31,30,31,30,31,31,30,31,30,31};
 
 		//Private mutator
 		void set_wday();
 
 	public:
 		//Constructor
-		My_Date(int mday, int wday, int mon, int _year);
+		My_Date(int mday, int mon, int _year);
 
 		//Accessors	
 		int get_mday();

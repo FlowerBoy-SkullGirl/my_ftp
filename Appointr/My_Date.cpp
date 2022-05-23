@@ -37,7 +37,7 @@ int My_Date::get_year()
 
 bool My_Date::is_leap()
 {
-	if ((year % 4 == 0) && ((year % 100 != 0) || (year % 400 == 0))
+	if ((year % 4 == 0) && ((year % 100 != 0) || (year % 400 == 0)))
 		return true;
 	return false;
 }
@@ -55,9 +55,32 @@ void My_Date::set_mday(int day)
 }
 
 //Using the epoch as a reference, calculate the number of days since, and determine weekday from that
+//Epoch is a thursday, 0 is sunday, 7%7 equals 0, so thursday is 4
 void My_Date::set_wday()
 {
+	int epoch_year = 1970;
+	int epoch_month = 1;
+	int epoch_day = 1;
+	int num_leap_years = (year - (epoch_year + 2)) / 4;
+	num_leap_years++;
 	
+	epoch_year = year - epoch_year;
+	epoch_month = month - epoch_month;
+	epoch_day = m_day - epoch_day;
+	
+	int mdays_to_add = 0;
+	for (int i = 1; i <= epoch_month; i++){
+		mdays_to_add += mday_MAX[i];
+	}
+	
+	mdays_to_add += num_leap_years;
+	if (is_leap() && month <= 2 && !(month == 2 && m_day == 29))
+		mdays_to_add--;
+	
+	mdays_to_add += epoch_day;
+	mdays_to_add += epoch_year * 365;
+	
+	w_day = ((mdays_to_add + 4) % 7);
 }
 
 //Allow 0 as a substitute for leap februaries, default to january
