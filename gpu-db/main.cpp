@@ -11,6 +11,7 @@
 #include <string>
 #include <cmath> //pow
 #include <cstring>
+#include <fstream>
 
 struct gpu_node{
 	std::string sku_name;
@@ -24,7 +25,7 @@ struct tree_node{
 };
 
 
-struct tree_node *insert_node(struct tree_node *root, struct gpu_node src)
+struct tree_node *create_node(struct tree_node *root, struct gpu_node src)
 {
 	struct tree_node *np = new struct tree_node;
 	np->lchild = NULL;
@@ -33,49 +34,25 @@ struct tree_node *insert_node(struct tree_node *root, struct gpu_node src)
 	return np;
 }
 
-struct tree_node *find_node(struct tree_node *root, std::string src)
+
+struct tree_node *insert_node(struct tree_node *root, struct gpu_node src)
 {
-	struct tree_node *np = root;
-	if (np == NULL){
-		std::cerr << "Search for non-existing data failed" << std::endl;
-		exit(0);
+	if (root == NULL){
+		root = create_node(root, src);
+		return root;
 	}
-	if ((strcmp(np->data.sku_name.c_str(), src.c_str()) == 0)){
-		return np;
+	if ((strcmp(root->data.sku_name.c_str(), src.sku_name.c_str()) == 0)){
+		
 	}
-	else if ((strcmp(np->data.sku_name.c_str(), src.c_str()) < 0)){
-		np = find_node(np->lchild, src);
-		return np;
+	else if ((strcmp(root->data.sku_name.c_str(), src.sku_name.c_str()) < 0)){
+		root->lchild = insert_node(root->lchild, src);
 	}
 	else{
-		np = find_node(np->rchild, src);
-		return np;
-	}
-
-	return np;
-}
-
-struct tree_node *find_node(struct tree_node *root, struct gpu_node src)
-{
-	struct tree_node *np = root;
-	if (np == NULL){
-		np = insert_node(np, src);
-		return np;
-	}
-	if ((strcmp(np->data.sku_name.c_str(), src.sku_name.c_str()) == 0)){
-		return np;
-	}
-	else if ((strcmp(np->data.sku_name.c_str(), src.sku_name.c_str()) < 0)){
-		np = find_node(np->lchild, src);
-		return np;
-	}
-	else{
-		np = find_node(np->rchild, src);
-		return np;
+		root->rchild = insert_node(root->rchild, src);
 	}
 
 
-	return np;
+	return root;
 }
 
 bool compare_price(struct gpu_node newval, struct gpu_node oldval)
@@ -126,29 +103,70 @@ struct gpu_node py_input()
 	return nv;
 }
 
+void write_tree(std::fstream &fp, struct tree_node *root)
+{
+	using namespace std;
+	if (!fp.is_open()){
+		cerr << "File op!" << endl;
+		exit(1);
+	}
+	
+	if (root->lchild != NULL){
+		write_tree(fp, root->lchild);
+	}
+	if (root->rchild != NULL)
+		write_tree(fp, root->rchild);
+
+	fp << root->data.sku_name << endl << root->data.price << endl;
+	cout << "Successful database entry" << endl;
+
+}
+
+struct tree_node *retrieve_tree()
+{
+	using namespace std;
+		string reception;
+		getline(cin, reception); 
+		struct tree_node *root = NULL;
+		int i = 0;
+
+		while (reception!= "end signal"){ 
+			struct gpu_node nod = py_input();
+
+			root = insert_node(root, nod);
+
+			cout << nod.sku_name << nod.price << endl;
+
+			getline(cin, reception);
+		}
+
+		return root;
+}
+
 
 int main()
 {
 	using namespace std;
-	string reception;
-	getline(cin, reception); 
-	struct tree_node *root = NULL;
-	struct tree_node *np; 
-	struct gpu_node test_gpu;
+	string filen = "/home/damean/c-stuff/gpu-db/database/db";
+	fstream fp;
+	fp.open(filen.c_str(), ios::out);
 
-	while (reception!= "end signal"){ 
-		struct gpu_node nod = test_gpu = py_input();
+	cout << "Gathering data" << endl;
 
-		np = find_node(root, nod);
+	struct tree_node *root = retrieve_tree();
 
-		cout << nod.sku_name << nod.price << endl;
-
-		getline(cin, reception);
+	if (root == NULL){
+		cerr << "Null ROOT" << endl;
+		exit(2);
 	}
 
-	np = find_node(root, test_gpu);
-	
-	cout << np->data.sku_name << endl;
+	cout << "Writing database" << endl;
+
+	write_tree(fp, root);
+
+	fp.close();
+
+	cout << "File closed" << endl;
 
 	return 0;
 }
