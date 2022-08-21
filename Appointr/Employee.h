@@ -1,8 +1,8 @@
 #include <iostream>
 #include <string>
-#include "Person.h"
-#include "Appointment.h"
-#include "Schedule.h"
+#include "person.h"
+#include "appointment.h"
+#include "schedule.h"
 #include <vector>
 
 #ifndef EMPLOYEE_H

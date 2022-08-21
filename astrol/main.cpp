@@ -14,6 +14,7 @@
 using std::cout;
 using std::cin;
 using std::string;
+using std::endl;
 
 #define MAXLEN 255
 
@@ -365,6 +366,9 @@ using std::string;
 
 			cout << readingStr << readingNum << endl;
 			
+			cout << "Enter to continue...";
+			getchar();
+
 			return 0;
 		}		
 		//Compare uptime month, day, and hour into zodiac signs
