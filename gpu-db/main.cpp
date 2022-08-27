@@ -35,16 +35,28 @@ struct tree_node *create_node(struct tree_node *root, struct gpu_node src)
 }
 
 
+bool compare_price(struct gpu_node newval, struct gpu_node oldval)
+{
+	if (newval.price != oldval.price)
+		return true;
+	else
+		return false;
+}
+
+
 struct tree_node *insert_node(struct tree_node *root, struct gpu_node src)
 {
 	if (root == NULL){
 		root = create_node(root, src);
 		return root;
 	}
-	if ((strcmp(root->data.sku_name.c_str(), src.sku_name.c_str()) == 0)){
-		
+	if (root->data.sku_name == src.sku_name){
+		if (compare_price(src, root->data)){
+			std::cout << "Price change: " << src.sku_name << " " << src.price << std::endl;
+			root->data = src;
+		}
 	}
-	else if ((strcmp(root->data.sku_name.c_str(), src.sku_name.c_str()) < 0)){
+	else if (root->data.sku_name < src.sku_name){
 		root->lchild = insert_node(root->lchild, src);
 	}
 	else{
@@ -53,14 +65,6 @@ struct tree_node *insert_node(struct tree_node *root, struct gpu_node src)
 
 
 	return root;
-}
-
-bool compare_price(struct gpu_node newval, struct gpu_node oldval)
-{
-	if (newval.price != oldval.price)
-		return true;
-	else
-		return false;
 }
 
 
@@ -144,12 +148,56 @@ struct tree_node *retrieve_tree()
 }
 
 
+struct tree_node *retrieve_db(std::string filen)
+{
+	using namespace std;
+		struct tree_node *root = NULL;
+		int i = 0;
+		fstream fp;
+		string temp;
+		fp.open(filen.c_str(), ios::in);
+
+		if (!fp.is_open()){
+			cerr << "File op!" << endl;
+			exit(1);
+		}
+
+		while (getline(fp, temp)){ 
+			cout << "Extracting data" << endl;
+			struct gpu_node nod;
+			nod.sku_name = temp;
+			
+			getline(fp, temp);
+
+			nod.price = currency_to_double(temp);
+
+			root = insert_node(root, nod);
+
+			cout << nod.sku_name << nod.price << endl;
+		}
+		
+		fp.close();
+
+		return root;
+}
+
+struct tree_node *merge_to(struct tree_node *dest, struct tree_node *src)
+{
+	if (src != NULL){
+		merge_to(dest, src->lchild);
+		dest = insert_node(dest, src->data);
+		merge_to(dest, src->rchild);
+
+		delete src;
+	}
+	return dest;
+}
+
 int main()
 {
 	using namespace std;
 	string filen = "/home/damean/c-stuff/gpu-db/database/db";
 	fstream fp;
-	fp.open(filen.c_str(), ios::out);
 
 	cout << "Gathering data" << endl;
 
@@ -160,13 +208,25 @@ int main()
 		exit(2);
 	}
 
+	cout << "Opening old data" << endl;
+
+	struct tree_node *root_old = retrieve_db(filen);
+
+	if (!root_old == NULL){
+		cout << "Merging data" << endl;
+		root_old = merge_to(root_old, root);
+	}
+
 	cout << "Writing database" << endl;
 
-	write_tree(fp, root);
+	fp.open(filen.c_str(), ios::out);
+
+	write_tree(fp, root_old);
 
 	fp.close();
 
 	cout << "File closed" << endl;
+
 
 	return 0;
 }
