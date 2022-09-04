@@ -33,7 +33,7 @@
 	}
 	
 	//Returns 0 on success, sends confirmation to client before more data is received
-	int getfilen(int s, char *filen){
+	int getfilen(int s, char **filen){
 		int gotname = 1;
 		uint32_t size_filen = 0;
 		char gotsize = 1;
@@ -56,13 +56,23 @@
 				path = 0;
 			}
 		}
-		strcpy(filen, filentemp);
-		filen[strlen(filen)+1] = '\0';
+		*filen = (char *)malloc(strlen(filentemp) + 1);
+		if (*filen == NULL){
+			printf("Failed to allocate memory filen\n");
+			exit(1);
+		}
+/*		strcpy(*filen, filentemp);
+		printf("%s\n%s", filentemp, *filen);
+		*filen[strlen(*filen)+1] = '\0';
+*/		*filen = filentemp;
+		*filen[size_filen - 1] = '\0';
 
-		if (filentemp != NULL)
+/*		if (filentemp != NULL){
 			free(filentemp);
-
-		printf("Received filename from client: %s\nSize: %ld\n", filen, size_filen);
+			puts("Freed memory for filen");
+		}
+*/
+		printf("Received filename from client: %s\nSize: %ld\n", *filen, size_filen);
 		
 		//Confirm filename was received
 		gotname = htonl(gotname);
@@ -215,7 +225,7 @@
 			puts("Socket bound..");
 			
 			FILE *fp;
-			char filen[MAXLEN];
+			char *filen;
 
 			int status = listen(sockid, WAITERS);
 			for( ; ;){
@@ -230,7 +240,7 @@
 				//Get init signal
 				if(!handshake_server(s, getter)){
 					//Receive filen
-					getfilen(s, filen);
+					getfilen(s, &filen);
 					printf("Writing file %s\n", filen);
 
 					//Open file
@@ -251,6 +261,9 @@
 					}
 					fclose(fp);
 					puts("File write success");
+
+					if (filen != NULL)
+						free(filen);
 
 					if (c != NULL)
 						free(c);
