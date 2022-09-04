@@ -45,7 +45,6 @@
 		char *filentemp = (char *)malloc(size_filen);
 		//Receive a filename from the client	
 		recv(s, filentemp, MAXLEN, 0);
-		*filentemp = ntohl(*filentemp);
 
 		int path = 1;
 		while(path){
