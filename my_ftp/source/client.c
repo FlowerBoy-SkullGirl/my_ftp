@@ -118,7 +118,7 @@
 			filenout[strlen(filenout)+1] = '\0';
 
 			//send size filename
-			uint32_t filensize = strlen(filenout);
+			uint32_t filensize = strlen(filenout) + 1;
 			char gotfilesize = 0;
 			filensize = htonl(filensize);
 			send(sockid, &filensize, sizeof(uint32_t), 0);

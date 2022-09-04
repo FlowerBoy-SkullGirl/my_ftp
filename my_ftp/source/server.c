@@ -56,7 +56,7 @@
 				path = 0;
 			}
 		}
-		*filen = (char *)malloc(strlen(filentemp) + 1);
+		*filen = (char *)malloc(size_filen);
 		if (*filen == NULL){
 			printf("Failed to allocate memory filen\n");
 			exit(1);
@@ -65,7 +65,7 @@
 		printf("%s\n%s", filentemp, *filen);
 		*filen[strlen(*filen)+1] = '\0';
 */		*filen = filentemp;
-		*filen[size_filen - 1] = '\0';
+		*filen[size_filen] = '\0';
 
 /*		if (filentemp != NULL){
 			free(filentemp);
