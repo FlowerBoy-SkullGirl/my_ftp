@@ -102,15 +102,30 @@
 		}
 		//Sends contents of a file
 		if(fp != NULL && !serverready){
+			//truncate filename before transmission
+			char *filenout = (char *)malloc(strlen(filen)+1);
+			strcpy(filenout, filen);
+			int path = 1;
+			while(path){
+				path = strcspn(filenout, "/");
+				if (path != strlen(filenout)){
+					memcpy(filenout, &filenout[path+1], (strlen(filenout) - path));
+					path = 1;
+				}else{
+					path = 0;
+				}
+			}
+			filenout[strlen(filenout)+1] = '\0';
+
 			//send size filename
-			uint32_t filensize = strlen(filen);
+			uint32_t filensize = strlen(filenout);
 			char gotfilesize = 0;
 			send(sockid, &filensize, sizeof(uint32_t), 0);
 			recv(sockid, &gotfilesize, 1, 0);
 
 			//Send filen
-			send(sockid, filen, strlen(filen), 0);
-			printf("Sent filename: %s\n", filen);
+			send(sockid, filenout, strlen(filenout), 0);
+			printf("Sent filename: %s\n", filenout);
 			recv(sockid, &gotit, MAXLEN, 0);
 			//Make sure bytes arrived in order
 			gotit = ntohl(gotit);	
