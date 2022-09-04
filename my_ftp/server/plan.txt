@@ -1,0 +1,1 @@
+Why does it take 1 second per 100K?
