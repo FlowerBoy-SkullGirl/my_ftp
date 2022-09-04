@@ -9,7 +9,6 @@
 
 #define WAITERS 1
 #define MAXLEN 2048
-#define SIZE_CHANGE 2
 
 	//Return 0 on successful handshake
 	int handshake_server(int s, char *getter){
@@ -108,8 +107,7 @@
 		char c = 0;
 		recv(s, &c, sizeof(c), 0);
 		//printf("Client preparing data type %d\n", c);
-//		if (c == SIZE_CHANGE)
-		if (c)
+		if (c == 2)
 			reply_success(s);
 		return c;
 	}
@@ -124,7 +122,7 @@
 		}
 		//This is a magic number, please address
 		//supposed to be signal for "not uint32_t size"
-		if (response == SIZE_CHANGE){
+		if (response == 2){
 			recv(s, &size_offset, sizeof(uint32_t), 0);
 			size_offset = ntohl(size_offset);
 			puts("Recieved offset size");
