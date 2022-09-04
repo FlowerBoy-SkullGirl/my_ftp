@@ -8,7 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define MAXLEN 2047
+#define MAXLEN 2048
 	
 /*	unsigned int inet_addr(char *str){
 		int a, b, c, d;
@@ -88,10 +88,18 @@
 		char endsended[MAXLEN] = "Goodbye, server\n";
 		int gotit = 0;	
 		int length_sent = 0;
+		char success = 1;
+		char failure = 0;
+		char recieved = 0;
 	
 		//Send preliminary hello
 		int serverready = handshake_client(sockid, sended);
 
+		uint32_t *c = (uint32_t *)malloc(32);
+		if (c == NULL){
+			puts("Could not allocate memory for filereader");
+			exit(1);
+		}
 		//Sends contents of a file
 		if(fp != NULL && !serverready){
 			//Send filen
@@ -104,21 +112,24 @@
 			printf("Server returned: %d\n", gotit);
 			if(gotit){
 				puts("Server received filen");
-
+/*
 				while(fgets(buff, MAXLEN, fp)){
 					gotit = 0;
 
 					//Send length of str
 					length_sent = strlen(buff);
+					if (length_sent == 0)
+						continue;
 					length_sent = htonl(length_sent);
 					send(sockid, &length_sent, sizeof(length_sent), 0);
+					puts("Sent length of packet");
 
 					//Receive confirmation
 					while(!gotit){
 						recv(sockid, &gotit, MAXLEN, 0);
 						gotit = ntohl(gotit);
 						
-						printf("Server received line: %d\n", gotit);
+						printf("Server received length of %d: %d\n", ntohl(length_sent), gotit);
 					}
 					gotit = 0;
 					
@@ -133,11 +144,70 @@
 						
 						printf("Server received line: %d\n", gotit);
 					}
+				} */
+				//get size of file
+				fseek(fp, 0, SEEK_END);
+				uint32_t endf = ftell(fp);
+				fseek(fp, 0, SEEK_SET);
+
+				for (uint32_t i = ftell(fp); i <= (endf - 32); i = ftell(fp)){
+					fread(c, sizeof(uint32_t), 1, fp);
+					recieved = 0;
+					//prepare server for data
+					send(sockid, &success, 1, 0);
+					puts("Preparing data");
+					while (!recieved){
+						recv(sockid, &recieved, 1, 0);
+						puts("Server ready");
+					}
+					recieved = 0;
+					//send data
+					*c = htonl(*c);
+					send(sockid, c, sizeof(uint32_t), 0);
+					puts("Sent data");
+					while (!recieved){
+						recv(sockid, &recieved, 1, 0);
+						puts("Server recieved data");
+					}
+					recieved = 0;
 				}
-			}
+				uint32_t length_remaining = endf - ftell(fp);
+				fread(c, length_remaining, 1, fp);
+				recieved = 0;
+				char new_size = 2;
+				send(sockid, &new_size, 1, 0);
+				puts("Alert server of size mismatch");
+				while (!recieved){
+					recv(sockid, &recieved, 1, 0);
+					puts("Server was alerted");
+				}
+				recieved = 0;
+
+				length_remaining = htonl(length_remaining);
+				send(sockid, &length_remaining, sizeof(length_remaining), 0);
+				puts("Sent size remaining");
+				while (!recieved){
+					recv(sockid, &recieved, 1, 0);
+					puts("Server recieved remaining size");
+				}
+				recieved = 0;
+
+				*c = htonl(*c);
+				send(sockid, c, length_remaining, 0);
+				puts("Sent data!");
+				while (!recieved){
+					recv(sockid, &recieved, 1, 0);
+					puts("Server recieved last data");
+				}
+			} 
 			fclose(fp);
 		}
-		//Send length of str
+		if (c != NULL)
+			free(c);
+		//Inform server that all data is received
+		send(sockid, &failure, 1, 0);
+		puts("Sent end of file flag");
+/*		//Send length of str
 		length_sent = strlen(endsended);
 		length_sent = htonl(length_sent);
 		send(sockid, &length_sent, sizeof(length_sent), 0);
@@ -160,7 +230,7 @@
 		//Receive server's confirmation
 		recv(sockid, recieveded, MAXLEN, 0);
 		printf("%s\n", recieveded);
-
+*/
 		//close connection
 		int statusc = close(sockid);
 

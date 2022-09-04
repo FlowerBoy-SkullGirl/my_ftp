@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 #define WAITERS 1
-#define MAXLEN 2047
+#define MAXLEN 2048
 
 	//Return 0 on successful handshake
 	int handshake_server(int s, char *getter){
@@ -54,8 +54,72 @@
 		//convert to host
 		length_recv = ntohl(length_recv);	
 	
-		//return
 		return length_recv;
+	}
+
+	int reply_success(int s)
+	{
+		char success = 1;
+		send(s, &success, 1, 0);
+		puts("Replied with success");
+		return 0;
+	}
+
+
+	int end_signal(int s)
+	{
+		char c = 0;
+		recv(s, &c, sizeof(c), 0);
+		printf("Client preparing data type %d\n", c);
+		if (c)
+			reply_success(s);
+		return c;
+	}
+
+	uint32_t getfile32(int s, uint32_t *c)
+	{
+		int response = end_signal(s);
+		uint32_t size_offset = 0;
+		if (!response)
+			return 0;
+		//This is a magic number, please address
+		//supposed to be signal for "not uint32_t size"
+		if (response == 2){
+			recv(s, &size_offset, sizeof(uint32_t), 0);
+			size_offset = ntohl(size_offset);
+			puts("Recieved offset size");
+			reply_success(s);
+
+			printf("Size is %ld\n", size_offset);
+			//c = (uint32_t *)malloc(size_offset); hopefully don't need this trickery
+
+			recv(s, c, size_offset, 0);
+			*c = ntohl(*c);
+			puts("Recieved last data");
+			reply_success(s);
+
+			return size_offset;
+		}
+
+		recv(s, c, sizeof(uint32_t), 0);
+		*c = ntohl(*c);
+		puts("Recieved data");
+		reply_success(s);
+		
+		return sizeof(uint32_t);
+	}
+
+	int getfilec(int s, char *c)
+	{
+		int response = end_signal(s);
+		uint32_t size_offset = 0;
+		if (!response)
+			return 1;
+		
+		recv(s, c, sizeof(char), 0);
+		reply_success(s);
+		
+		return 0;
 	}
 
 	int getfileline(int s, char *getter){
@@ -69,15 +133,17 @@
 		//reply
 		gotline = htonl(gotline);
 		send(s, &gotline, sizeof(gotline), 0);
+		printf("Received line length of: %d\n", length_recv);
 
 		//Receive a line from the client
-		recv(s, getter, MAXLEN, 0);
+		recv(s, getter, length_recv, 0);
 		//Add the null terminator
-		*(getter + length_recv) = '\0';
+		//*(getter + length_recv) = '\0';
 
 		//Reply
-		gotline = htonl(gotline);
-		send(s, &gotline, sizeof(gotline), 0);
+		//gotline = 1;
+		//gotline = htonl(gotline);
+		//send(s, &gotline, sizeof(gotline), 0);
 
 	
 		printf("Line: %s\n", getter);	
@@ -92,6 +158,7 @@
 			send(s, gotend, strlen(gotend), 0);
 			return 1;
 		}else{
+			gotline = 1;
 			gotline = htonl(gotline);
 			send(s, &gotline, sizeof(gotline), 0);
 			return 0; 		
@@ -99,7 +166,8 @@
 	}
 		
 
-	int main(){
+	int main()
+	{
 		struct sockaddr_in addrport, addrcli;
 		int sockid = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 		char sender[MAXLEN] = "File received\n";
@@ -117,7 +185,7 @@
 		addrcli.sin_port = htons(INADDR_ANY);
 		addrcli.sin_addr.s_addr = htonl(INADDR_ANY);
 	
-		if(bind(sockid, (struct sockaddr *) &addrport, sizeof(addrport))!= -1) {
+		if (bind(sockid, (struct sockaddr *) &addrport, sizeof(addrport))!= -1){
 			puts("Socket bound..");
 			
 			FILE *fp;
@@ -125,6 +193,10 @@
 
 			int status = listen(sockid, WAITERS);
 			for( ; ;){
+				uint32_t *c = (uint32_t *)malloc(32);
+				if (c == NULL)
+					continue;
+
 				socklen_t clilen = sizeof(addrcli);		
 				s = accept(sockid, (struct sockaddr *) &addrcli, &clilen);
 				puts("Connection established..");
@@ -142,16 +214,25 @@
 						exit(1);
 					}
 					//Begin receiving lines to write
-					while(!getfileline(s, getter)){
+/*					while(!getfileline(s, getter)){
 						fprintf(fp, "%s", getter);
+						memset(getter,0,sizeof(getter));
 						}
+					} */
+					uint32_t size_message = 1;
+					while (size_message = getfile32(s, c)){
+						fwrite(c, size_message, 1, fp);
 					}
 					fclose(fp);
-				}
-			}
+					puts("File write success");
 
-			int statusc = close(sockid);
-			close(s);
-	
+					if (c != NULL)
+						free(c);
+				}
+			}	
+		
+		int statusc = close(sockid);
+		close(s);
+		}
 		return 0;
 	}
