@@ -177,21 +177,21 @@
 					//prepare server for data
 					send(sockid, &success, 1, 0);
 					//puts("Preparing data");
-					while (!recieved){
+/*					while (!recieved){
 						recv(sockid, &recieved, 1, 0);
 					//	puts("Server ready");
 					}
 					recieved = 0;
-					//send data
+*/					//send data
 					*c = htonl(*c);
 					send(sockid, c, sizeof(uint32_t), 0);
 					//puts("Sent data");
-					while (!recieved){
+/*					while (!recieved){
 						recv(sockid, &recieved, 1, 0);
 					//	puts("Server recieved data");
 					}
 					recieved = 0;
-				}
+*/				}
 				uint32_t length_remaining = endf - ftell(fp);
 				fread(c, length_remaining, 1, fp);
 				recieved = 0;

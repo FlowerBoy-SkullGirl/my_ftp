@@ -93,7 +93,7 @@
 		char c = 0;
 		recv(s, &c, sizeof(c), 0);
 		//printf("Client preparing data type %d\n", c);
-		if (c)
+		if (c == 2)
 			reply_success(s);
 		return c;
 	}
@@ -126,7 +126,7 @@
 		recv(s, c, sizeof(uint32_t), 0);
 		*c = ntohl(*c);
 		//puts("Recieved data");
-		reply_success(s);
+		//reply_success(s);
 		
 		return sizeof(uint32_t);
 	}
