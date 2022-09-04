@@ -65,7 +65,9 @@
 		printf("%s\n%s", filentemp, *filen);
 		*filen[strlen(*filen)+1] = '\0';
 */		*filen = filentemp;
-		*filen[size_filen] = '\0';
+		printf("%s %d\n", filentemp, size_filen);
+		filentemp[size_filen - 1] = '\0';
+//		*filen[size_filen - 1] = '\0';
 
 /*		if (filentemp != NULL){
 			free(filentemp);

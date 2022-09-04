@@ -172,11 +172,13 @@
 				uint32_t endf = ftell(fp);
 				fseek(fp, 0, SEEK_SET);
 
+				puts("Initiating data transfer");
 				for (uint32_t i = ftell(fp); i <= (endf - 32); i = ftell(fp)){
 					fread(c, sizeof(uint32_t), 1, fp);
 					recieved = 0;
 					//prepare server for data
 					send(sockid, &success, 1, 0);
+					printf("%c\n", success);
 					//puts("Preparing data");
 /*					while (!recieved){
 						recv(sockid, &recieved, 1, 0);
