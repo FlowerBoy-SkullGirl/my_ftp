@@ -178,14 +178,13 @@
 					recieved = 0;
 					//prepare server for data
 					send(sockid, &success, 1, 0);
-					printf("%d\n", success);
 					//puts("Preparing data");
-/*					while (!recieved){
+					while (!recieved){
 						recv(sockid, &recieved, 1, 0);
 					//	puts("Server ready");
 					}
 					recieved = 0;
-*/					//send data
+					//send data
 					*c = htonl(*c);
 					send(sockid, c, sizeof(uint32_t), 0);
 					//puts("Sent data");
