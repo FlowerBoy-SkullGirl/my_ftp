@@ -120,10 +120,12 @@
 			//send size filename
 			uint32_t filensize = strlen(filenout);
 			char gotfilesize = 0;
+			filensize = htonl(filensize);
 			send(sockid, &filensize, sizeof(uint32_t), 0);
 			recv(sockid, &gotfilesize, 1, 0);
 
 			//Send filen
+			*filenout = htonl(*filenout);
 			send(sockid, filenout, strlen(filenout), 0);
 			printf("Sent filename: %s\n", filenout);
 			recv(sockid, &gotit, MAXLEN, 0);

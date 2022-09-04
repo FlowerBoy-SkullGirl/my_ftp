@@ -40,9 +40,12 @@
 		//Receive size of filen
 		recv(s, &size_filen, sizeof(uint32_t), 0);
 		send(s, &gotsize, 1, 0);
+		size_filen = ntohl(size_filen);
+
 		char *filentemp = (char *)malloc(size_filen);
 		//Receive a filename from the client	
 		recv(s, filentemp, MAXLEN, 0);
+		*filentemp = ntohl(*filentemp);
 
 		int path = 1;
 		while(path){
