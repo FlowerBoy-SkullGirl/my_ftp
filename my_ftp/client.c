@@ -102,8 +102,14 @@
 		}
 		//Sends contents of a file
 		if(fp != NULL && !serverready){
+			//send size filename
+			uint32_t filensize = strlen(filen);
+			char gotfilesize = 0;
+			send(sockid, &filensize, sizeof(uint32_t), 0);
+			recv(sockid, &gotfilesize, 1, 0);
+
 			//Send filen
-			send(sockid, filen, strlen(sended), 0);
+			send(sockid, filen, strlen(filen), 0);
 			printf("Sent filename: %s\n", filen);
 			recv(sockid, &gotit, MAXLEN, 0);
 			//Make sure bytes arrived in order
@@ -155,19 +161,19 @@
 					recieved = 0;
 					//prepare server for data
 					send(sockid, &success, 1, 0);
-					puts("Preparing data");
+					//puts("Preparing data");
 					while (!recieved){
 						recv(sockid, &recieved, 1, 0);
-						puts("Server ready");
+					//	puts("Server ready");
 					}
 					recieved = 0;
 					//send data
 					*c = htonl(*c);
 					send(sockid, c, sizeof(uint32_t), 0);
-					puts("Sent data");
+					//puts("Sent data");
 					while (!recieved){
 						recv(sockid, &recieved, 1, 0);
-						puts("Server recieved data");
+					//	puts("Server recieved data");
 					}
 					recieved = 0;
 				}

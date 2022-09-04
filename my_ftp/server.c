@@ -35,9 +35,31 @@
 	//Returns 0 on success, sends confirmation to client before more data is received
 	int getfilen(int s, char *filen){
 		int gotname = 1;
-
+		uint32_t size_filen = 0;
+		char gotsize = 1;
+		//Receive size of filen
+		recv(s, &size_filen, sizeof(uint32_t), 0);
+		send(s, &gotsize, 1, 0);
+		char *filentemp = (char *)malloc(size_filen);
 		//Receive a filename from the client	
-		recv(s, filen, MAXLEN, 0);
+		recv(s, filentemp, MAXLEN, 0);
+
+		int path = 1;
+		while(path){
+			path = strcspn(filentemp, "/");
+			if (path != strlen(filentemp)){
+				memcpy(filentemp, &filentemp[path+1], (strlen(filentemp) - path));
+				path = 1;
+			}else{
+				path = 0;
+			}
+		}
+		strcpy(filen, filentemp);
+		filen[strlen(filen)+1] = '\0';
+
+		if (filentemp != NULL)
+			free(filentemp);
+
 		printf("Received filename from client: %s\n", filen);
 		
 		//Confirm filename was received
@@ -61,7 +83,7 @@
 	{
 		char success = 1;
 		send(s, &success, 1, 0);
-		puts("Replied with success");
+		//puts("Replied with success");
 		return 0;
 	}
 
@@ -70,7 +92,7 @@
 	{
 		char c = 0;
 		recv(s, &c, sizeof(c), 0);
-		printf("Client preparing data type %d\n", c);
+		//printf("Client preparing data type %d\n", c);
 		if (c)
 			reply_success(s);
 		return c;
@@ -103,7 +125,7 @@
 
 		recv(s, c, sizeof(uint32_t), 0);
 		*c = ntohl(*c);
-		puts("Recieved data");
+		//puts("Recieved data");
 		reply_success(s);
 		
 		return sizeof(uint32_t);
