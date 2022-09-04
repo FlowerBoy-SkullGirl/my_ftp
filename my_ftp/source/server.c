@@ -62,7 +62,7 @@
 		if (filentemp != NULL)
 			free(filentemp);
 
-		printf("Received filename from client: %s\n", filen);
+		printf("Received filename from client: %s\nSize: %ld\n", filen, size_filen);
 		
 		//Confirm filename was received
 		gotname = htonl(gotname);
@@ -104,8 +104,10 @@
 	{
 		int response = end_signal(s);
 		uint32_t size_offset = 0;
-		if (!response)
+		if (!response){
+			puts("End of file signal from client");
 			return 0;
+		}
 		//This is a magic number, please address
 		//supposed to be signal for "not uint32_t size"
 		if (response == 2){
