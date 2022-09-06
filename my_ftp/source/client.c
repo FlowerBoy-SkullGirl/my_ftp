@@ -9,6 +9,15 @@
 #include <unistd.h>
 
 #define MAXLEN 2048
+#define PAYLOAD_FLAG 1
+#define SIZE_FLAG 2
+#define EOF_FLAG 3
+#define PAYLOAD 0x10000000
+#define DIFF_SIZE 0x20000000
+#define END_FLAG 0x30000000
+#define CORRUPTED_FLAG 0xF0000000
+#define PAYLOAD_SIZE 3
+#define EMPTY_DATA 0x00000000
 	
 /*	unsigned int inet_addr(char *str){
 		int a, b, c, d;
@@ -40,6 +49,40 @@
 			return 1;
 		}
 	}	
+
+	//Reserve the 1st 4 bits for type of data info, last 28 bits for payload
+	uint32_t encapsulate(char type, uint32_t data)
+	{
+		if (type == PAYLOAD_FLAG){
+			data = data | PAYLOAD;
+		}else if (type == SIZE_FLAG){
+			data = data | DIFF_SIZE;
+		}else if (type == EOF_FLAG){
+			data = data | END_FLAG;
+		}else{
+			return data | CORRUPTED_FLAG;
+		}
+		
+		return data;
+	}
+
+	//Return value is size of remaining file
+	int send_payload(int sockid, FILE *fp, uint32_t *c)
+	{
+		fseek(fp, 0, SEEK_END);
+		uint32_t endf = ftell(fp);
+		fseek(fp, 0, SEEK_SET);
+
+
+		for (uint32_t i = ftell(fp); i <= (endf - PAYLOAD_SIZE); i = ftell(fp)){
+			fread(c, PAYLOAD_SIZE, 1, fp);
+			*c = encapsulate(PAYLOAD_FLAG, *c);
+			*c = htonl(*c);
+			send(sockid, c, sizeof(uint32_t), 0);
+			*c = *c & EMPTY_DATA;
+		}
+		return endf - ftell(fp);
+	}
 
 	int main(int argc, char *argv[]){
 		struct sockaddr_in addrserv;
@@ -134,125 +177,30 @@
 			printf("Server returned: %d\n", gotit);
 			if(gotit){
 				puts("Server received filen");
-/*
-				while(fgets(buff, MAXLEN, fp)){
-					gotit = 0;
 
-					//Send length of str
-					length_sent = strlen(buff);
-					if (length_sent == 0)
-						continue;
-					length_sent = htonl(length_sent);
-					send(sockid, &length_sent, sizeof(length_sent), 0);
-					puts("Sent length of packet");
+				int flag = send_payload(sockid, fp, c);
+				
+				if (flag){
+					uint32_t payload_remaining = flag;
+					payload_remaining = encapsulate(SIZE_FLAG, payload_remaining);
+					payload_remaining = htonl(payload_remaining);
+					send(sockid, &payload_remaining, sizeof(uint32_t), 0);
 
-					//Receive confirmation
-					while(!gotit){
-						recv(sockid, &gotit, MAXLEN, 0);
-						gotit = ntohl(gotit);
-						
-						printf("Server received length of %d: %d\n", ntohl(length_sent), gotit);
-					}
-					gotit = 0;
-					
-					//Send nextline
-					send(sockid, buff, strlen(buff), 0);
-					printf("Sent: %s\n", buff);
-					
-					//See if server gotit
-					while(!gotit){
-						recv(sockid, &gotit, MAXLEN, 0);
-						gotit = ntohl(gotit);
-						
-						printf("Server received line: %d\n", gotit);
-					}
-				} */
-				//get size of file
-				fseek(fp, 0, SEEK_END);
-				uint32_t endf = ftell(fp);
-				fseek(fp, 0, SEEK_SET);
-
-				for (uint32_t i = ftell(fp); i <= (endf - 32); i = ftell(fp)){
-					fread(c, sizeof(uint32_t), 1, fp);
-					recieved = 0;
-					//prepare server for data
-					send(sockid, &success, 1, 0);
-					//puts("Preparing data");
-/*					while (!recieved){
-						recv(sockid, &recieved, 1, 0);
-					//	puts("Server ready");
-					}
-					recieved = 0;
-*/					//send data
+					fread(c, flag, 1, fp);
+					*c = encapsulate(PAYLOAD_FLAG, *c);
 					*c = htonl(*c);
 					send(sockid, c, sizeof(uint32_t), 0);
-					//puts("Sent data");
-/*					while (!recieved){
-						recv(sockid, &recieved, 1, 0);
-					//	puts("Server recieved data");
-					}
-					recieved = 0;
-*/				}
-				uint32_t length_remaining = endf - ftell(fp);
-				fread(c, length_remaining, 1, fp);
-				recieved = 0;
-				char new_size = 2;
-				send(sockid, &new_size, 1, 0);
-				puts("Alert server of size mismatch");
-				while (!recieved){
-					recv(sockid, &recieved, 1, 0);
-					puts("Server was alerted");
 				}
-				recieved = 0;
-
-				length_remaining = htonl(length_remaining);
-				send(sockid, &length_remaining, sizeof(length_remaining), 0);
-				puts("Sent size remaining");
-				while (!recieved){
-					recv(sockid, &recieved, 1, 0);
-					puts("Server recieved remaining size");
-				}
-				recieved = 0;
-
-				*c = htonl(*c);
-				send(sockid, c, length_remaining, 0);
-				puts("Sent data!");
-				while (!recieved){
-					recv(sockid, &recieved, 1, 0);
-					puts("Server recieved last data");
-				}
-			} 
+			}			 
 			fclose(fp);
 		}
 		if (c != NULL)
 			free(c);
 		//Inform server that all data is received
-		send(sockid, &failure, 1, 0);
+		uint32_t end_signal_client = END_FLAG;
+		end_signal_client = htonl(end_signal_client);
+		send(sockid, &end_signal_client, 1, 0);
 		puts("Sent end of file flag");
-/*		//Send length of str
-		length_sent = strlen(endsended);
-		length_sent = htonl(length_sent);
-		send(sockid, &length_sent, sizeof(length_sent), 0);
-
-		//Receive confirmation
-		while(!gotit){
-			recv(sockid, &gotit, MAXLEN, 0);
-			gotit = ntohl(gotit);
-				
-			printf("Server received line: %d\n", gotit);
-		}
-		gotit = 0;
-					
-
-		//Send endliminary goodbye
-		send(sockid, endsended, strlen(endsended), 0);
-			
-		printf("Sent server goodbye message\n");
-		
-		//Receive server's confirmation
-		recv(sockid, recieveded, MAXLEN, 0);
-		printf("%s\n", recieveded);
-*/
 		//close connection
 		int statusc = close(sockid);
 

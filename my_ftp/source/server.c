@@ -10,7 +10,16 @@
 #define WAITERS 1
 #define MAXLEN 2048
 #define SIZE_CHANGE 2
-
+#define PAYLOAD_FLAG 1
+#define SIZE_FLAG 2
+#define EOF_FLAG 3
+#define PAYLOAD 0x10000000
+#define DIFF_SIZE 0x20000000
+#define END_FLAG 0x30000000
+#define CORRUPTED FLAG 0xF0000000
+#define REMOVE_FLAG 0x0FFFFFFF
+#define PAYLOAD_SIZE 3
+	
 	//Return 0 on successful handshake
 	int handshake_server(int s, char *getter){
 		char initsess[MAXLEN] = "Hello, server";
@@ -57,24 +66,9 @@
 				path = 0;
 			}
 		}
-		*filen = (char *)malloc(size_filen);
-		if (*filen == NULL){
-			printf("Failed to allocate memory filen\n");
-			exit(1);
-		}
-/*		strcpy(*filen, filentemp);
-		printf("%s\n%s", filentemp, *filen);
-		*filen[strlen(*filen)+1] = '\0';
-*/		*filen = filentemp;
+		*filen = filentemp;
 		printf("%s %d\n", filentemp, size_filen);
 		filentemp[size_filen - 1] = '\0';
-//		*filen[size_filen - 1] = '\0';
-
-/*		if (filentemp != NULL){
-			free(filentemp);
-			puts("Freed memory for filen");
-		}
-*/
 		printf("Received filename from client: %s\nSize: %ld\n", *filen, size_filen);
 		
 		//Confirm filename was received
@@ -82,16 +76,6 @@
 		send(s, &gotname, sizeof(gotname), 0);
 		
 		return 0;
-	}
-		
-	int getstrlen(int s){
-		int length_recv = 0;
-		//get length of str
-		recv(s, &length_recv, sizeof(length_recv), 0);
-		//convert to host
-		length_recv = ntohl(length_recv);	
-	
-		return length_recv;
 	}
 
 	int reply_success(int s)
@@ -105,9 +89,9 @@
 
 	int end_signal(int s)
 	{
-		char c = 0;
+		unsigned char c = 0;
 		recv(s, &c, 1, 0);
-		printf("Client preparing data type %d\n", c);
+		printf("Client preparing data type %x\n", c);
 		if (c == SIZE_CHANGE)
 			reply_success(s);
 		return c;
@@ -160,50 +144,41 @@
 		
 		return 0;
 	}
-
-	int getfileline(int s, char *getter){
-		int gotline = 1;
-		char endfile[MAXLEN] = "Goodbye, server";
-		char gotend[MAXLEN] = "Goodbye, client\n";
-		int length_recv = 0;
-
-		//Receive strlen
-		length_recv = getstrlen(s);
-		//reply
-		gotline = htonl(gotline);
-		send(s, &gotline, sizeof(gotline), 0);
-		printf("Received line length of: %d\n", length_recv);
-
-		//Receive a line from the client
-		recv(s, getter, length_recv, 0);
-		//Add the null terminator
-		//*(getter + length_recv) = '\0';
-
-		//Reply
-		//gotline = 1;
-		//gotline = htonl(gotline);
-		//send(s, &gotline, sizeof(gotline), 0);
-
 	
-		printf("Line: %s\n", getter);	
-		//Compare line received to end message
-		char tempcomp[MAXLEN];
-		strcpy(tempcomp, getter);
-		tempcomp[strcspn(tempcomp, "\n")] = 0;
-			
-		if(!strcmp(endfile, tempcomp)){
-			puts("Client marked end of file...");
-			//Send client confirmation of end
-			send(s, gotend, strlen(gotend), 0);
-			return 1;
-		}else{
-			gotline = 1;
-			gotline = htonl(gotline);
-			send(s, &gotline, sizeof(gotline), 0);
-			return 0; 		
-		}
+	uint32_t *decapsulate(uint32_t *data, uint32_t *flag)
+	{
+		*flag = 0xF0000000 & *data;
+		*data = *data & REMOVE_FLAG;
+		return data;
 	}
-		
+
+	uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
+	{
+		recv(s, c, sizeof(uint32_t), 0);
+		*c = ntohl(*c);
+		c = decapsulate(c, flag);
+		if (*flag == PAYLOAD)
+			return PAYLOAD_SIZE;
+		else if (*flag == DIFF_SIZE)
+			//Data with a size_flag is the size in bytes of the next payload
+			return *c;
+		else if (*flag == EOF_FLAG)
+			return 0;
+		return 0;
+	}
+
+	//Returns 0 on failure
+	uint32_t incoming_data_last(int s, uint32_t *c, uint32_t *flag)
+	{
+		recv(s, c, sizeof(uint32_t), 0);
+		*c = ntohl(*c);
+		c = decapsulate(c, flag);
+		if (*flag == PAYLOAD)
+			return 1;
+		else if (*flag == EOF_FLAG)
+			return 0;
+		return 0;
+	}
 
 	int main()
 	{
@@ -232,7 +207,8 @@
 
 			int status = listen(sockid, WAITERS);
 			for( ; ;){
-				uint32_t *c = (uint32_t *)malloc(32);
+				uint32_t *c = (uint32_t *)malloc(sizeof(uint32_t));
+				uint32_t *flag = (uint32_t *)malloc(sizeof(uint32_t));
 				if (c == NULL)
 					continue;
 
@@ -252,16 +228,18 @@
 						fprintf(stderr, "Could not write file");
 						exit(1);
 					}
-					//Begin receiving lines to write
-/*					while(!getfileline(s, getter)){
-						fprintf(fp, "%s", getter);
-						memset(getter,0,sizeof(getter));
-						}
-					} */
+
 					uint32_t size_message = 1;
-					while (size_message = getfile32(s, c)){
-						fwrite(c, size_message, 1, fp);
+					*flag = 0;
+					while (size_message = incoming_data(s, c, flag)){
+						if (*flag == PAYLOAD){
+							fwrite(c, size_message, 1, fp);
+						}else if (size_message < PAYLOAD_SIZE){
+							incoming_data_last(s, c, flag);
+							fwrite(c, size_message, 1, fp);
+						}
 					}
+
 					fclose(fp);
 					puts("File write success");
 
