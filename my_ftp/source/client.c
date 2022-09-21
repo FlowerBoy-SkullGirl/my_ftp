@@ -50,7 +50,7 @@
 		}
 	}	
 
-	//Reserve the 1st 4 bits for type of data info, last 28 bits for payload
+	//Reserve the 1st 4 bits for type of data info, last 24 for payload (4 currently unused, in same byte as info flags)
 	uint32_t encapsulate(char type, uint32_t data)
 	{
 		if (type == PAYLOAD_FLAG){

@@ -1,0 +1,12 @@
+MY_FTP
+	Create a hashing algorithm to verify integrity of files in-app rather than with sha256sum manually.
+	Improve speed of transfer, potentially by increasing payload size
+
+Appointr
+	Make it look pretty.
+	Add the ability to delete appointments.
+	Add the ability to manage participants in appointment.
+	Add a separate page to manage participant info.
+
+Gravitas
+	A program to simulate orbits! Oh my!
