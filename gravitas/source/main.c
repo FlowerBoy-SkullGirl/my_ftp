@@ -1,12 +1,14 @@
 #include <stdio.h>
 #include <math.h>
+#include <ncurses.h>
+#include <unistd.h>
 
 
 #define G_CONSTANT 6.674e-11
 #define PI 3.1415
 #define TICK 1
-#define TEST_MASS_1 5e8
-#define TEST_MASS_2 1.2e12
+#define TEST_MASS_1 10e11
+#define TEST_MASS_2 10e11
 #define SCALE 1
 #define RAD_ADJ PI / 180.0
 
@@ -36,6 +38,7 @@ struct vector_3{
 	double z_comp;
 	double alpha;
 	double beta;
+	double gamma;
 };
 
 struct massive_object{
@@ -59,16 +62,33 @@ double hypot_3d(struct massive_object mo1, struct massive_object mo2)
 
 void component_3d(struct vector_3 *vect)
 {
-	double sin_alpha = sin(vect->alpha * RAD_ADJ);
-	double sin_beta = sin(vect->beta * RAD_ADJ);
-	double cos_alpha = cos(vect->alpha * RAD_ADJ);
-	double cos_beta = cos(vect->beta * RAD_ADJ);
+	double sin_alpha = sin(vect->alpha);
+	double sin_beta = sin(vect->beta);
+	double cos_alpha = cos(vect->alpha);
+	double cos_beta = cos(vect->beta);
 	vect->x_comp = vect->magnitude * ((cos_alpha*sin_beta)/(sqrt((cos_beta*cos_beta)*(sin_alpha*sin_alpha)+(sin_beta*sin_beta))));
-	vect->z_comp = tan(vect->alpha * RAD_ADJ) * vect->x_comp;
-	vect->y_comp = vect->z_comp / tan(vect->beta * RAD_ADJ);
+	vect->z_comp = tan(vect->alpha) * vect->x_comp;
+	vect->y_comp = vect->z_comp / tan(vect->beta);
 	
-	printf("Sina, sinb, cosa, cosb: %f, %f, %f, %f\n", sin_alpha, sin_beta, cos_alpha, cos_beta);
-	printf("Vector components: [%e, %e, %e]\n", vect->x_comp, vect->z_comp, vect->y_comp);
+	//printf("Sina, sinb, cosa, cosb: %f, %f, %f, %f\n", sin_alpha, sin_beta, cos_alpha, cos_beta);
+	//printf("Vector components: [%e, %e, %e]\n", vect->x_comp, vect->z_comp, vect->y_comp);
+}
+
+void component_3d_alt(struct vector_3 *vect)
+{
+	if (vect->gamma){
+		vect->y_comp = vect->magnitude * cos(vect->gamma);
+		double hypot_xz = vect->magnitude * sin(vect->gamma);
+		vect->x_comp = hypot_xz * cos(vect->alpha);
+		vect->z_comp = hypot_xz * sin(vect->alpha);
+	}else if (vect->alpha){
+		vect->x_comp = vect->magnitude * cos(vect->alpha);
+		vect->z_comp = vect->magnitude * sin(vect->alpha);
+	}else{
+		vect->x_comp = vect->magnitude;
+		vect->y_comp = 0.0;
+		vect->z_comp = 0.0;
+	}
 }
 
 //Find alpha and beta angles of a vector such that they corrsepsond to x-z angle and y-z angle
@@ -77,22 +97,32 @@ void find_angle_vector(struct vector_3 *dest, struct massive_object mo1, struct 
 	double x_diff = fabs(mo2.loc_x - mo1.loc_x);
 	double y_diff = fabs(mo2.loc_y - mo1.loc_y);
 	double z_diff = fabs(mo2.loc_z - mo1.loc_z);
-	dest->alpha = atan((z_diff/x_diff)*RAD_ADJ);
-	dest->beta = atan((z_diff/y_diff)*RAD_ADJ);
+	if (x_diff == 0.0)
+		dest->alpha = 0.0;
+	else
+		dest->alpha = atan(z_diff/x_diff);
+	if (y_diff == 0.0){
+		dest->beta = 0.0;
+		dest->gamma = 0.0;
+	}else{
+		dest->beta = atan(z_diff/y_diff);
+		dest->gamma = atan(x_diff/y_diff);
+	}
+	//printf("Angles a, b, g: %f, %f, %f\n", dest->alpha, dest->beta, dest->gamma);
 }
 
 //find the force of gravity between two masses
 double force_gravity(struct massive_object mo1, struct massive_object mo2)
 {
 	double radius = hypot_3d(mo1, mo2);
-	printf("Object radius: %f\n", radius);
+	//printf("Object radius: %f\n", radius);
 	return G_CONSTANT * ((mo1.mass * mo2.mass)/(radius * radius));
 }
 
 //Find the acceleration due to gravity on mass 1 
 double acceleration_due_to_gravity(struct massive_object mo1, struct massive_object mo2)
 {
-	printf("Force of gravity between MOs: %EN\n", force_gravity(mo1, mo2));
+	//printf("Force of gravity between MOs: %EN\n", force_gravity(mo1, mo2));
 	return (force_gravity(mo1, mo2)/mo1.mass);
 	
 }
@@ -107,7 +137,7 @@ struct vector_3 vector_acc_per_tick(struct massive_object mo1, struct massive_ob
 	struct vector_3 v_acc;
 	v_acc.magnitude = acceleration_due_to_gravity(mo1, mo2) * TICK;
 	find_angle_vector(&v_acc, mo1, mo2);
-	component_3d(&v_acc);
+	component_3d_alt(&v_acc);
 	
 	if (mo1.loc_x > mo2.loc_x)
 		v_acc.x_comp *= -1.0;
@@ -116,10 +146,10 @@ struct vector_3 vector_acc_per_tick(struct massive_object mo1, struct massive_ob
 	if (mo1.loc_z > mo2.loc_z)
 		v_acc.z_comp *= -1.0;
 	
-	printf("Magnitude total %e\n", v_acc.magnitude);
-	printf("Vector x_comp: %f\n", v_acc.x_comp);
-	printf("Vector y_comp: %f\n", v_acc.y_comp);
-	printf("Vector z_comp: %f\n", v_acc.z_comp);
+	//printf("Magnitude total %e\n", v_acc.magnitude);
+	//printf("Vector x_comp: %f\n", v_acc.x_comp);
+	//printf("Vector y_comp: %f\n", v_acc.y_comp);
+	//printf("Vector z_comp: %f\n", v_acc.z_comp);
 
 	return v_acc;
 }
@@ -132,8 +162,8 @@ struct vector_3 add_vectors(struct vector_3 *initial, struct vector_3 *v_acc)
 	v_final.y_comp = initial->y_comp + v_acc->y_comp;
 	v_final.z_comp = initial->z_comp + v_acc->z_comp;
 
-	printf("V_INIT: [%f, %f, %f]\n", initial->x_comp, initial->y_comp, initial->z_comp);
-	printf("V_FINAL: [%f, %f, %f]\n", v_final.x_comp, v_final.y_comp, v_final.z_comp);
+	//printf("V_INIT: [%f, %f, %f]\n", initial->x_comp, initial->y_comp, initial->z_comp);
+	//printf("V_FINAL: [%f, %f, %f]\n", v_final.x_comp, v_final.y_comp, v_final.z_comp);
 	
 	return v_final;
 }
@@ -141,34 +171,49 @@ struct vector_3 add_vectors(struct vector_3 *initial, struct vector_3 *v_acc)
 //Simulation setup
 int main()
 {
+
+	//ncurses init
+	initscr();
+	int ncur_x = 0;
+	int ncur_y = 0;
+	getmaxyx(stdscr, ncur_y, ncur_x);
+	ncur_x /= 2;
+	ncur_y /= 2;
+
+
 	struct massive_object mo1, mo2;
 	mo1.mass = TEST_MASS_1;
 	mo2.mass = TEST_MASS_2;
-	mo1.loc_x = 20.0;
-	mo1.loc_y = 30.0;
-	mo1.loc_z = -25.0;
+	mo1.loc_x = 10.0;
+	mo1.loc_y = 0.0;
+	mo1.loc_z = 0.0;
 	
-	mo2.loc_x = -20.0;
-	mo2.loc_y = 27.0;
-	mo2.loc_z = 4.0;
+	mo2.loc_x = -10.0;
+	mo2.loc_y = 0.0;
+	mo2.loc_z = 0.0;
 	
 	struct vector_3 v_init_mo1, v_init_mo2;
-	v_init_mo1.magnitude = 3.0;
-	v_init_mo2.magnitude = 4.0;
+	v_init_mo1.magnitude = 2.0;
+	v_init_mo2.magnitude = 2.0;
 	
-	v_init_mo1.alpha = 60.0;
-	v_init_mo1.beta = 30.0;
-	v_init_mo2.alpha = 30.0;
-	v_init_mo2.beta = 30.0;
-
+	v_init_mo1.alpha = 0.0;
+	v_init_mo1.beta = 0.0;
+	v_init_mo2.alpha = 0.0;
+	v_init_mo2.beta = 0.0;
+/*
 	puts("Comp vi1");
 	component_3d(&v_init_mo1);
 	puts("Comp vi2");
 	component_3d(&v_init_mo2);
-
-	v_init_mo1.x_comp *= -1.0;
-	v_init_mo1.y_comp *= -1.0;
-	v_init_mo2.z_comp *= -1.0;
+*/
+	v_init_mo1.x_comp = 1.0;
+	v_init_mo1.y_comp = 1.0;
+	v_init_mo1.z_comp = 0.0;
+	v_init_mo2.x_comp = 1.0;
+	v_init_mo2.y_comp = 1.0;
+	v_init_mo2.z_comp = 0.0;
+	v_init_mo2.y_comp *= -1.0;
+	v_init_mo2.x_comp *= -1.0;
 	
 	mo1.vect = v_init_mo1;
 	mo2.vect = v_init_mo2;
@@ -177,7 +222,9 @@ int main()
 	struct vector_3 v_change_1 = vector_acc_per_tick(mo1, mo2);
 	struct vector_3 v_change_2 = vector_acc_per_tick(mo2, mo1);
 
-	for (int i = 0; i < 5; i++){
+	char c;
+	for (int i = 0; c != 'q'; i++){
+		clear();
 		mo1.loc_x += mo1.vect.x_comp * TICK;
 		mo1.loc_y += mo1.vect.y_comp * TICK;
 		mo1.loc_z += mo1.vect.z_comp * TICK;	
@@ -185,6 +232,16 @@ int main()
 		mo2.loc_x += mo2.vect.x_comp * TICK;
 		mo2.loc_y += mo2.vect.y_comp * TICK;
 		mo2.loc_z += mo2.vect.z_comp * TICK;	
+		if (i == 0){
+			mo1.loc_x = 10.0;
+			mo1.loc_y = 0.0;
+			mo1.loc_z = 0.0;
+	
+			mo2.loc_x = -10.0;
+			mo2.loc_y = 0.0;
+			mo2.loc_z = 0.0;
+		}
+
 
 		coord_x1 = mo1.loc_x / SCALE;
 		coord_y1 = mo1.loc_y / SCALE;
@@ -193,13 +250,13 @@ int main()
 		coord_y2 = mo2.loc_y / SCALE;
 		coord_z2 = mo2.loc_z / SCALE;
 
-		printf("MO1i: [%d, %d, %d]\n", coord_x1, coord_y1, coord_z1);
-		printf("MO2i: [%d, %d, %d]\n", coord_x2, coord_y2, coord_z2);
+		//printf("MO1i: [%d, %d, %d]\n", coord_x1, coord_y1, coord_z1);
+		//printf("MO2i: [%d, %d, %d]\n", coord_x2, coord_y2, coord_z2);
 
 	
-		puts("Mo1 calc");
+		//puts("Mo1 calc");
 		v_change_1 = vector_acc_per_tick(mo1, mo2);
-		puts("Mo2 calc");
+		//puts("Mo2 calc");
 		v_change_2 = vector_acc_per_tick(mo2, mo1);
 
 		mo1.vect = add_vectors(&mo1.vect, &v_change_1);
@@ -212,12 +269,20 @@ int main()
 		coord_y2 = mo2.loc_y / SCALE;
 		coord_z2 = mo2.loc_z / SCALE;
 
-		printf("MO1f: [%d, %d, %d]\n", coord_x1, coord_y1, coord_z1);
-		printf("MO2f: [%d, %d, %d]\n", coord_x2, coord_y2, coord_z2);
+		//printf("MO1f: [%d, %d, %d]\n", coord_x1, coord_y1, coord_z1);
+		//printf("MO2f: [%d, %d, %d]\n", coord_x2, coord_y2, coord_z2);
+
+		mvprintw(coord_y1 + ncur_y, coord_x1 + ncur_x, "1");
+		mvprintw(coord_y2 + ncur_y, coord_x2 + ncur_x, "2");
+
+		refresh();
+		usleep(50000);
 	}
 
+	endwin();
+
 	double radius = hypot_3d(mo1, mo2);	
-	printf("Radius: %E\n", radius);
+	//printf("Radius: %E\n", radius);
 
 	return 0;
 }
