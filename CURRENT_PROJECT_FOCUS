@@ -1,3 +1,4 @@
+Priority top to bottom
 MY_FTP
 	Create a hashing algorithm to verify integrity of files in-app rather than with sha256sum manually.
 	Improve speed of transfer, potentially by increasing payload size
@@ -10,3 +11,6 @@ Appointr
 
 Gravitas
 	A program to simulate orbits! Oh my!
+	Pretty good so far
+	Has: Coordinate movements every TICK, with somewhat accurate results, rotation about the z axis, OpenGL 3D rendering
+	Needs: Rotation about the x and y axis, ways to move camera based on input(eg, focus on Earth and adjust scale accordingly), etc

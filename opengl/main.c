@@ -5,7 +5,11 @@
 #include <linmath.h>
 #include <stddef.h>
 	
-	
+	GLfloat g_vertex_buffer_data[] = {
+		-1.0f, -1.0f, 0.0f,
+		1.0f, -1.0f, 0.0f,
+		0.0f, 1.0f, 0.0f,
+	};
 	//error callback to print errors before or after initialize
 	void error_callback(int error, const char *description){
 		fprintf(stderr, "%s\n", description);
@@ -35,6 +39,10 @@
 			puts("Failed window");
 		}
 		
+		GLuint VertexArrayID;
+		glGenVertexArrays(1, &VertexArrayID);
+		glBindVertexArray(VertexArrayID);
+
 		int screenWidth, screenHeight;
 		glfwGetFramebufferSize( window, &screenWidth, &screenHeight);
 		
@@ -42,8 +50,11 @@
 		glfwMakeContextCurrent(window);
 		//Extension wrangling
 		glewExperimental = GL_TRUE;
+		glewInit();
 		
 
+		glEnable(GL_DEPTH_TEST);
+		glDepthFunc(GL_LESS);
 		//set key callback for input		
 		glfwSetKeyCallback(window, key_callback);
 		
@@ -61,6 +72,10 @@
 		double time = glfwGetTime();	
 		
 
+		GLuint vertexbuffer;
+		glGenBuffers(1, &vertexbuffer);
+		glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);
 
 		
 		//The actual window loop
@@ -82,7 +97,7 @@
 			glLoadIdentity();
 			glRotatef((float) glfwGetTime() * 50.f, 0.f, 0.f, 1.f);
 
-			glBegin(GL_TRIANGLES);
+/*			glBegin(GL_TRIANGLES);
 			glColor3f(1.f, 0.f, 0.f);
 			glVertex3f(0.6f, -0.4f, 0.f);
 			glColor3f(0.f, 1.f, 0.f);
@@ -90,6 +105,12 @@
 			glColor3f(0.f, 0.f, 1.f);
 			glVertex3f(0.f, 0.6f, 0.f);
 			glEnd();
+*/
+			glEnableVertexAttribArray(0);
+			glBindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
+			glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,0,(void*)0);
+			glDrawArrays(GL_TRIANGLES,0,3);
+			glDisableVertexAttribArray(0);
 
 			glfwSwapBuffers(window);
 			glfwPollEvents();
