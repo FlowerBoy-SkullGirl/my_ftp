@@ -12,12 +12,16 @@
 #define PAYLOAD_FLAG 1
 #define SIZE_FLAG 2
 #define EOF_FLAG 3
+#define HASH_FLAG 4
 #define PAYLOAD 0x10000000
 #define DIFF_SIZE 0x20000000
 #define END_FLAG 0x30000000
+#define HASH_PAYLOAD 0x40000000
 #define CORRUPTED_FLAG 0xF0000000
 #define PAYLOAD_SIZE 3
 #define EMPTY_DATA 0x00000000
+
+uint32_t ROUGH_HASH = 0;
 	
 /*	unsigned int inet_addr(char *str){
 		int a, b, c, d;
@@ -59,6 +63,8 @@
 			data = data | DIFF_SIZE;
 		}else if (type == EOF_FLAG){
 			data = data | END_FLAG;
+		}else if (type == HASH_FLAG){
+			data = data | HASH_PAYLOAD;
 		}else{
 			return data | CORRUPTED_FLAG;
 		}
@@ -76,6 +82,7 @@
 
 		for (uint32_t i = ftell(fp); i <= (endf - PAYLOAD_SIZE); i = ftell(fp)){
 			fread(c, PAYLOAD_SIZE, 1, fp);
+			ROUGH_HASH += *c;
 			*c = encapsulate(PAYLOAD_FLAG, *c);
 			*c = htonl(*c);
 			send(sockid, c, sizeof(uint32_t), 0);
@@ -187,6 +194,7 @@
 					send(sockid, &payload_remaining, sizeof(uint32_t), 0);
 
 					fread(c, flag, 1, fp);
+					ROUGH_HASH += *c;
 					*c = encapsulate(PAYLOAD_FLAG, *c);
 					*c = htonl(*c);
 					send(sockid, c, sizeof(uint32_t), 0);
@@ -196,6 +204,13 @@
 		}
 		if (c != NULL)
 			free(c);
+		//Send server the hash of the file
+		if (ROUGH_HASH > 0x00FFFFFF)
+			ROUGH_HASH = ROUGH_HASH & 0x00FFFFFF;
+		fprintf(stdout, "Sent hash to server as: %x\n", ROUGH_HASH);
+		ROUGH_HASH = encapsulate(HASH_FLAG, ROUGH_HASH);
+		ROUGH_HASH = htonl(ROUGH_HASH);
+		send(sockid, &ROUGH_HASH, sizeof(uint32_t), 0);
 		//Inform server that all data is received
 		uint32_t end_signal_client = END_FLAG;
 		end_signal_client = htonl(end_signal_client);

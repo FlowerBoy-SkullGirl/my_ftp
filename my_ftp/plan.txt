@@ -14,7 +14,7 @@ receive the first line of a file from the client
 
 write the file on the local server
 
-send a confirmation from the server
+//send a confirmation from the server
 
 repeat 13-17 as needed
 
