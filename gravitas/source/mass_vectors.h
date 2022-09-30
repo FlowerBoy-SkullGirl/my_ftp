@@ -75,6 +75,7 @@ double hypot_3d(struct massive_object mo1, struct massive_object mo2)
 	return sqrt((z_diff * z_diff) + (h_xy * h_xy));
 }
 
+//NO LONGER USED: KEPT IN CASE OF USEFULNESS
 void component_3d(struct vector_3 *vect)
 {
 	double sin_alpha = sin(vect->alpha);
@@ -89,6 +90,8 @@ void component_3d(struct vector_3 *vect)
 	//printf("Vector components: [%e, %e, %e]\n", vect->x_comp, vect->z_comp, vect->y_comp);
 }
 
+
+//Breaks a vector into 3 components, x, y, and z based on given angle information
 void component_3d_alt(struct vector_3 *vect)
 {
 	if (vect->gamma && vect->gamma > SIGNIFICANT_RADIANS){

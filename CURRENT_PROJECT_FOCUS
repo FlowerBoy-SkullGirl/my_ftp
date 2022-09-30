@@ -1,6 +1,6 @@
 Priority top to bottom
 MY_FTP
-	Create a hashing algorithm to verify integrity of files in-app rather than with sha256sum manually.
+	Improve hashing algorithm to detect intentional tampering and be more robust
 	Improve speed of transfer, potentially by increasing payload size
 
 Appointr

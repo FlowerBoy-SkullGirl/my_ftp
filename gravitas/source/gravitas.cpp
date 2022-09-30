@@ -226,6 +226,7 @@ float *genVertices(struct massive_object mo)
 //Simulation setup
 int main()
 {
+	//OpenGL initialization
 	if (!glfwInit())
 	{
 		fprintf(stderr, "Failed GLFW\n");
@@ -237,8 +238,9 @@ int main()
 	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
+	//Create a window
 	GLFWwindow *window;
-	window = glfwCreateWindow(WIDTH,HEIGHT, "Triangle", NULL, NULL);
+	window = glfwCreateWindow(WIDTH,HEIGHT, "Gravitas", NULL, NULL);
 
 	if (window == nullptr){
 		fprintf(stderr, "Failed window\n");
@@ -378,6 +380,7 @@ int main()
 	
 	float *drawMass;
 	
+	//A reference for size of drawMass and for layout of indices
 	float testCoords[] = {
 		-0.6f, 0.0f, 0.0f,
 		0.0f, -0.6f, 0.0f,
@@ -388,6 +391,7 @@ int main()
 
 	};
 
+	//To create a double pyramid shape
 	unsigned int indices[] = {
 		//0 left
 		//1 bottom
@@ -438,10 +442,12 @@ int main()
 		int i = 0;
 		time_passed_total += TICK;
 		for (cp = root; cp != nullptr; cp = cp->next){
+			//Iterate through each object and get new vertex coordinates
 			gravity_list_iterate(root, i);
 			drawMass = genVertices(cp->m_obj);
 			i++;
 			
+			//Pass new vertex values into buffer
 			glBufferData(GL_ARRAY_BUFFER, sizeof(testCoords), drawMass, GL_DYNAMIC_DRAW);
 			//can retrieve time
 			//glfwGetTime();
@@ -458,8 +464,10 @@ int main()
 			glfwPollEvents();
 
 			//Don't do this until drawing is done
+			//Removing this causes huge memory leak
 			free(drawMass);
 		}
+		//Change the location of each object based on data from their vectors
 		for (cp = root; cp != nullptr; cp = cp->next)
 			update_location(cp);
 

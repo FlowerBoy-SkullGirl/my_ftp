@@ -21,7 +21,8 @@
 #define CORRUPTED FLAG 0xF0000000
 #define REMOVE_FLAG 0x0FFFFFFF
 #define PAYLOAD_SIZE 3
-	
+
+//Global variable used to store file hash and verify integrity	
 uint32_t ROUGH_HASH = 0;
 
 //Return 0 on successful handshake
@@ -82,6 +83,7 @@ int getfilen(int s, char **filen){
 	return 0;
 }
 	
+//Separates data and flag, returns data
 uint32_t *decapsulate(uint32_t *data, uint32_t *flag)
 {
 	*flag = 0xF0000000 & *data;
@@ -89,6 +91,7 @@ uint32_t *decapsulate(uint32_t *data, uint32_t *flag)
 	return data;
 }
 
+//Takes incoming data, reverses byte order, determines what to do based on flag, returns proper flag
 uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
 {
 	recv(s, c, sizeof(uint32_t), 0);
@@ -119,6 +122,7 @@ uint32_t incoming_data_last(int s, uint32_t *c, uint32_t *flag)
 	return 0;
 }
 
+//Compares hash from client to local hash, returns 1 on success
 int compare_final_hash(uint32_t *c)
 {
 	//DEBUGGING
@@ -141,7 +145,8 @@ int main()
 	int s; 
 	
 	puts("Socket created..");
-	
+
+	//Setup socket and ip address structs
 	addrport.sin_family = AF_INET;
 	addrport.sin_port = htons(4414);
 	addrport.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -181,6 +186,7 @@ int main()
 					exit(1);
 				}
 
+				//Take return of incoming_data() and process accordingly
 				uint32_t size_message = 1;
 				*flag = 0;
 				while (size_message = incoming_data(s, c, flag)){
