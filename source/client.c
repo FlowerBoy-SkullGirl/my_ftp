@@ -17,6 +17,7 @@
 #define DIFF_SIZE 0x20000000
 #define END_FLAG 0x30000000
 #define HASH_PAYLOAD 0x40000000
+#define INIT_FLAG 0x50000000
 #define CORRUPTED_FLAG 0xF0000000
 #define PAYLOAD_SIZE 3
 #define EMPTY_DATA 0x00000000
@@ -33,28 +34,6 @@ uint32_t ROUGH_HASH = 0;
 		return *(unsigned int *)arr;
 	}
 */	
-//Initializes transfer of info, waits until server is ready for filename, 0 on success	
-int handshake_client(int sockid, char *sended){
-	//Servers success signal is 1	
-	int server_hello = 1;
-	int temp = 0;
-	
-	//Send a hello and receive the success signal
-	send(sockid, sended, strlen(sended), 0);
-	recv(sockid, &temp, MAXLEN, 0);
-	
-	//Make sure byte order
-	temp = ntohl(temp);
-	
-	//Verify success	
-	if(temp == server_hello){
-		puts("Server returned hello signal");
-		return 0;
-	}else{
-		fprintf(stderr, "Server did not return signal");
-		return 1;
-	}
-}	
 
 //Reserve the 1st 4 bits for type of data info, last 24 for payload (4 currently unused, in same byte as info flags)
 uint32_t encapsulate(char type, uint32_t data)
@@ -72,6 +51,31 @@ uint32_t encapsulate(char type, uint32_t data)
 	}
 	
 	return data;
+}
+
+//Initializes transfer of info, waits until server is ready for filename, 0 on success	
+int handshake_client(int sockid, char *sended){
+	//Servers success signal is 1	
+	//Assign the init flag in network order
+	uint32_t message = htonl(INIT_FLAG);
+	
+	//Send a hello and receive the success signal
+	send(sockid, &message, sizeof(uint32_t), 0);
+	//overwrite message to ensure that the data received next is new
+	message = message & EMPTY_DATA;
+	recv(sockid, &message, sizeof(uint32_t), 0);
+	
+	//Make sure byte order
+	message = ntohl(message);
+	
+	//Verify success	
+	if(message == INIT_FLAG){
+		puts("Server returned init signal");
+		return 0;
+	}else{
+		fprintf(stderr, "Server did not return signal");
+		return 1;
+	}
 }
 
 //Return value is size of remaining file

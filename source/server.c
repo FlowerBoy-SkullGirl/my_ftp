@@ -18,6 +18,7 @@
 #define DIFF_SIZE 0x20000000
 #define END_FLAG 0x30000000
 #define HASH_PAYLOAD 0x40000000
+#define INIT_FLAG 0x50000000
 #define CORRUPTED FLAG 0xF0000000
 #define REMOVE_FLAG 0x0FFFFFFF
 #define PAYLOAD_SIZE 3
@@ -25,28 +26,6 @@
 //Global variable used to store file hash and verify integrity	
 uint32_t ROUGH_HASH = 0;
 
-//Return 0 on successful handshake
-int handshake_server(int s, char *getter){
-	char initsess[MAXLEN] = "Hello, server";
-	int goodhello = 1;
-	//Gets message from client
-	recv(s, getter, MAXLEN, 0);
-	printf("Message from client: %s\n", getter);
-	getter[strcspn(getter, "\n")] = 0;
-	
-	//If message is correct, send an int to confirm server is ready for more data
-	if(strcmp(getter, initsess)){
-		fprintf(stderr, "Did not receive correct signal from client");
-		return 1;
-	}else{
-		puts("Hello received...replying");
-		//Make sure int is in n order
-		goodhello = htonl(goodhello);
-		send(s, &goodhello, sizeof(goodhello), 0);
-	}
-	return 0;
-}
-	
 //Returns 0 on success, sends confirmation to client before more data is received
 int getfilen(int s, char **filen){
 	int gotname = 1;
@@ -91,6 +70,29 @@ uint32_t *decapsulate(uint32_t *data, uint32_t *flag)
 	return data;
 }
 
+//Return 0 on successful handshake
+int handshake_server(int s){
+	uint32_t message = 0;
+	uint32_t *mp = &message;
+	uint32_t *flag = (uint32_t *)malloc(sizeof(uint32_t));
+	//Gets message from client
+	recv(s, &message, sizeof(uint32_t), 0);
+	printf("Client sent init message\n");
+
+	//Reorganize received data into host order
+	message = ntohl(message);	
+	decapsulate(mp, flag);	
+	//If message is correct, send an int to confirm server is ready for more data
+	if(*flag != INIT_FLAG){
+		fprintf(stderr, "Did not receive correct signal from client");
+		return 1;
+	}
+	puts("Expected init received...replying");
+	message = htonl(INIT_FLAG);
+	send(s, &message, sizeof(uint32_t), 0);
+	return 0;
+}
+	
 //Takes incoming data, reverses byte order, determines what to do based on flag, returns proper flag
 uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
 {
@@ -140,8 +142,6 @@ int main()
 {
 	struct sockaddr_in addrport, addrcli;
 	int sockid = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-	char sender[MAXLEN] = "File received\n";
-	char getter[MAXLEN];
 	int s; 
 	
 	puts("Socket created..");
@@ -174,7 +174,7 @@ int main()
 			puts("Connection established..");
 			
 			//Get init signal
-			if(!handshake_server(s, getter)){
+			if(!handshake_server(s)){
 				//Receive filen
 				getfilen(s, &filen);
 				printf("Writing file %s\n", filen);
@@ -208,12 +208,15 @@ int main()
 
 				fclose(fp);
 				puts("File write success");
-
+				
+				//Free any memory not in use until next connection and reset hash
 				if (filen != NULL)
 					free(filen);
 
 				if (c != NULL)
 					free(c);
+				
+				ROUGH_HASH = 0;
 			}
 		}	
 	
