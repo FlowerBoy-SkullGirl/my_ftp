@@ -87,11 +87,16 @@ int handshake_server(int s){
 	//If message is correct, send an int to confirm server is ready for more data
 	if(*flag != INIT_FLAG){
 		fprintf(stderr, "Did not receive correct signal from client");
+		if (flag != NULL)
+			free(flag);
 		return 1;
 	}
 	puts("Expected init received...replying");
 	message = htonl(INIT_FLAG);
 	send(s, &message, sizeof(uint32_t), 0);
+
+	if (flag != NULL)
+		free(flag);
 	return 0;
 }
 	
@@ -171,6 +176,9 @@ int main()
 		for( ; ;){
 			uint32_t *c = (uint32_t *)malloc(sizeof(uint32_t));
 			uint32_t *flag = (uint32_t *)malloc(sizeof(uint32_t));
+			//Remove any stagnant garbage from these memory spaces
+			*c = *c & 0;
+			*flag = *flag & 0;
 			uint32_t *hash_buff = (uint32_t *)malloc(sizeof(uint32_t) * 4);
 			if (c == NULL)
 				continue;
@@ -226,6 +234,8 @@ int main()
 
 				if (c != NULL)
 					free(c);
+				if (flag != NULL)
+					free(flag);
 				
 				if (hash_buff != NULL)
 					free(hash_buff);
