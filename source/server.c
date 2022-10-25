@@ -180,6 +180,9 @@ int main()
 			*c = *c & 0;
 			*flag = *flag & 0;
 			uint32_t *hash_buff = (uint32_t *)malloc(sizeof(uint32_t) * 4);
+			for (int i = 0; i < LENGTH_BUFFER; i++)
+				hash_buff[i] = hash_buff[i] & 0;
+
 			if (c == NULL)
 				continue;
 
@@ -215,12 +218,8 @@ int main()
 					if (size_message == HASH_PAYLOAD){
 						if (!compare_hash(hash_buff, c)){
 							fprintf(stdout, "File corruption detected. File hash mismatch. Please retry transfer. %x\n", hash_buff[hashes - 1]);
-							//Ensure buffer is written with 0
-							hash_buff[hashes - 1] = hash_buff[hashes - 1] & 0;
 						}else{
 							fprintf(stdout, "Matching file hash success: %x\n", hash_buff[hashes - 1]);
-							//Ensure buffer is written with 0
-							hash_buff[hashes - 1] = hash_buff[hashes - 1] & 0;
 						}
 					}
 				}
