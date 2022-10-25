@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "hashr.h" //Local header
 
 #define MAXLEN 2048
 #define PAYLOAD_FLAG 1
@@ -20,10 +21,12 @@
 #define INIT_FLAG 0x50000000
 #define CORRUPTED_FLAG 0xF0000000
 #define PAYLOAD_SIZE 3
+#define REMOVE_FLAG 0x0FFFFFFF
 #define EMPTY_DATA 0x00000000
 
 //Global hash value to verify data integrity after transmission
-uint32_t ROUGH_HASH = 0;
+uint32_t hash_total[LENGTH_BUFFER]; //Number of uint32_t in hash
+uint32_t hash_count = 0;
 	
 //Struct of inet_addr for reference
 /*	unsigned int inet_addr(char *str){
@@ -88,7 +91,7 @@ int send_payload(int sockid, FILE *fp, uint32_t *c)
 
 	for (uint32_t i = ftell(fp); i <= (endf - PAYLOAD_SIZE); i = ftell(fp)){
 		fread(c, PAYLOAD_SIZE, 1, fp);
-		ROUGH_HASH += *c;
+		hash_uint32(hash_total, *c, hash_count++);
 		*c = encapsulate(PAYLOAD_FLAG, *c);
 		*c = htonl(*c);
 		send(sockid, c, sizeof(uint32_t), 0);
@@ -202,7 +205,7 @@ int main(int argc, char *argv[]){
 				send(sockid, &payload_remaining, sizeof(uint32_t), 0);
 
 				fread(c, flag, 1, fp);
-				ROUGH_HASH += *c;
+				hash_uint32(hash_total, *c, hash_count++);
 				*c = encapsulate(PAYLOAD_FLAG, *c);
 				*c = htonl(*c);
 				send(sockid, c, sizeof(uint32_t), 0);
@@ -213,12 +216,16 @@ int main(int argc, char *argv[]){
 	if (c != NULL)
 		free(c);
 	//Send server the hash of the file
-	if (ROUGH_HASH > 0x00FFFFFF)
-		ROUGH_HASH = ROUGH_HASH & 0x00FFFFFF;
-	fprintf(stdout, "Sent hash to server as: %x\n", ROUGH_HASH);
-	ROUGH_HASH = encapsulate(HASH_FLAG, ROUGH_HASH);
-	ROUGH_HASH = htonl(ROUGH_HASH);
-	send(sockid, &ROUGH_HASH, sizeof(uint32_t), 0);
+	fprintf(stdout, "Sending hash to server: ");
+	for (int i = 0; i < LENGTH_BUFFER; i++){
+		if (hash_total[i] > REMOVE_FLAG)
+			hash_total[i] = hash_total[i] & REMOVE_FLAG;
+		hash_total[i] = encapsulate(HASH_FLAG, hash_total[i]);
+		hash_total[i] = htonl(hash_total[i]);
+		send(sockid, hash_total + i, sizeof(uint32_t), 0);
+		fprintf(stdout, "%x", hash_total[i]);
+	}
+	fprintf(stdout, "\n"); //create newline
 	//Inform server that all data is received
 	uint32_t end_signal_client = END_FLAG;
 	end_signal_client = htonl(end_signal_client);

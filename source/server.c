@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "hashr.h"
 
 #define WAITERS 1
 #define MAXLEN 2048
@@ -24,7 +25,8 @@
 #define PAYLOAD_SIZE 3
 
 //Global variable used to store file hash and verify integrity	
-uint32_t ROUGH_HASH = 0;
+uint32_t hash_count = 0;
+int hashes = 0;
 
 //Returns 0 on success, sends confirmation to client before more data is received
 int getfilen(int s, char **filen){
@@ -125,17 +127,20 @@ uint32_t incoming_data_last(int s, uint32_t *c, uint32_t *flag)
 }
 
 //Compares hash from client to local hash, returns 1 on success
-int compare_final_hash(uint32_t *c)
+int compare_hash(uint32_t *hash_buff, uint32_t *c)
 {
-	//DEBUGGING
-	fprintf(stdout, "Hashes: %x, %x\n", ROUGH_HASH, *c);
 	//If too large, discard extra
-	if (ROUGH_HASH > 0x00FFFFFF)
-		ROUGH_HASH = ROUGH_HASH & 0x00FFFFFF;
-	if (*c == ROUGH_HASH)
+	if (hash_buff[hashes] > REMOVE_FLAG)
+		hash_buff[hashes] = hash_buff[hashes] & REMOVE_FLAG;
+	//DEBUGGING
+	fprintf(stdout, "Hashes: %x, %x\n", hash_buff[hashes], *c);
+	if (hash_buff[hashes] == *c){
+		hashes++;
 		return 1;
-	else
+	}else{
+		hashes++;
 		return 0;
+	}
 }
 
 int main()
@@ -166,6 +171,7 @@ int main()
 		for( ; ;){
 			uint32_t *c = (uint32_t *)malloc(sizeof(uint32_t));
 			uint32_t *flag = (uint32_t *)malloc(sizeof(uint32_t));
+			uint32_t *hash_buff = (uint32_t *)malloc(sizeof(uint32_t) * 4);
 			if (c == NULL)
 				continue;
 
@@ -192,17 +198,22 @@ int main()
 				while (size_message = incoming_data(s, c, flag)){
 					if (*flag == PAYLOAD){
 						fwrite(c, size_message, 1, fp);
-						ROUGH_HASH += *c;
+						hash_uint32(hash_buff, *c, hash_count++);
 					}else if (size_message < PAYLOAD_SIZE){
 						incoming_data_last(s, c, flag);
 						fwrite(c, size_message, 1, fp);
-						ROUGH_HASH += *c;
+						hash_uint32(hash_buff, *c, hash_count++);
 					}
 					if (size_message == HASH_PAYLOAD){
-						if (!compare_final_hash(c))
-							fprintf(stdout, "File corruption detected. File hash mismatch. Please retry transfer. %x\n", ROUGH_HASH);
-						else
-							fprintf(stdout, "Matching file hash success: %x\n", ROUGH_HASH);
+						if (!compare_hash(hash_buff, c)){
+							fprintf(stdout, "File corruption detected. File hash mismatch. Please retry transfer. %x\n", hash_buff[hashes - 1]);
+							//Ensure buffer is written with 0
+							hash_buff[hashes - 1] = hash_buff[hashes - 1] & 0;
+						}else{
+							fprintf(stdout, "Matching file hash success: %x\n", hash_buff[hashes - 1]);
+							//Ensure buffer is written with 0
+							hash_buff[hashes - 1] = hash_buff[hashes - 1] & 0;
+						}
 					}
 				}
 
@@ -216,7 +227,11 @@ int main()
 				if (c != NULL)
 					free(c);
 				
-				ROUGH_HASH = 0;
+				if (hash_buff != NULL)
+					free(hash_buff);
+
+				hash_count = 0;
+				hashes = 0;
 			}
 		}	
 	
