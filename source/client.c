@@ -21,6 +21,7 @@
 #define INIT_FLAG 0x50000000
 #define CORRUPTED_FLAG 0xF0000000
 #define PAYLOAD_SIZE 3
+#define PAYLOAD_ARR_SIZE 127
 #define REMOVE_FLAG 0x0FFFFFFF
 #define EMPTY_DATA 0x00000000
 
@@ -81,6 +82,33 @@ int handshake_client(int sockid, char *sended){
 	}
 }
 
+int send_arr(int sockid, FILE *fp, uint32_t *c)
+{
+	fseek(fp, 0, SEEK_END);
+	uint32_t endf = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+
+	for (uint32_t i = ftell(fp); i <= (endf - PAYLOAD_ARR_SIZE); i = ftell(fp)){
+		fread(c, PAYLOAD_SIZE, PAYLOAD_ARR_SIZE, fp);
+		*(c+PAYLOAD_ARR_SIZE) = encapsulate(PAYLOAD_FLAG, *(c+PAYLOAD_ARR_SIZE));
+		send(sockid, c, (sizeof(uint32_t)*PAYLOAD_ARR_SIZE)+1, 0);
+		memset(c,0,PAYLOAD_ARR_SIZE+1);
+	}
+
+	fread(c, PAYLOAD_SIZE, endf - PAYLOAD_ARR_SIZE, fp);
+	*(c+PAYLOAD_ARR_SIZE) = encapsulate(PAYLOAD_FLAG, *(c+PAYLOAD_ARR_SIZE));
+	
+	uint32_t payload_remaining = endf - PAYLOAD_ARR_SIZE;
+	payload_remaining = encapsulate(SIZE_FLAG, payload_remaining);
+	payload_remaining = htonl(payload_remaining);
+	send(sockid, &payload_remaining, sizeof(uint32_t), 0);
+
+	send(sockid, c, (sizeof(uint32_t)*PAYLOAD_ARR_SIZE)+1, 0);
+	memset(c,0,PAYLOAD_ARR_SIZE+1);
+
+	return endf - ftell(fp);
+}
+
 //Return value is size of remaining file
 int send_payload(int sockid, FILE *fp, uint32_t *c)
 {
@@ -88,9 +116,8 @@ int send_payload(int sockid, FILE *fp, uint32_t *c)
 	uint32_t endf = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
 
-
 	for (uint32_t i = ftell(fp); i <= (endf - PAYLOAD_SIZE); i = ftell(fp)){
-		fread(c, PAYLOAD_SIZE, 1, fp);
+		fread(c, PAYLOAD_ARR_SIZE, 1, fp);
 		hash_uint32(hash_total, *c, hash_count++);
 		*c = encapsulate(PAYLOAD_FLAG, *c);
 		*c = htonl(*c);
@@ -195,8 +222,11 @@ int main(int argc, char *argv[]){
 		//main loop
 		if(gotit){
 			puts("Server received filen");
+			
+			uint32_t *c = (uint32_t *)realloc(c,32*(PAYLOAD_ARR_SIZE+1));
+			memset(c,0,(PAYLOAD_ARR_SIZE+1));
 
-			int flag = send_payload(sockid, fp, c);
+			int flag = send_arr(sockid, fp, c);
 			
 			if (flag){
 				uint32_t payload_remaining = flag;

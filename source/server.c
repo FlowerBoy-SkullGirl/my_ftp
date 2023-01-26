@@ -22,7 +22,8 @@
 #define INIT_FLAG 0x50000000
 #define CORRUPTED FLAG 0xF0000000
 #define REMOVE_FLAG 0x0FFFFFFF
-#define PAYLOAD_SIZE 3
+#define PAYLOAD_SIZE 4
+#define PAYLOAD_ARR_SIZE 128
 
 //Global variable used to store file hash and verify integrity	
 uint32_t hash_count = 0;
@@ -103,9 +104,8 @@ int handshake_server(int s){
 //Takes incoming data, reverses byte order, determines what to do based on flag, returns proper flag
 uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
 {
-	recv(s, c, sizeof(uint32_t), 0);
-	*c = ntohl(*c);
-	c = decapsulate(c, flag);
+	recv(s, c, sizeof(uint32_t)*PAYLOAD_ARR_SIZE, 0);
+	decapsulate((c+128), flag);
 	if (*flag == PAYLOAD)
 		return PAYLOAD_SIZE;
 	else if (*flag == DIFF_SIZE)
@@ -206,9 +206,14 @@ int main()
 				//Take return of incoming_data() and process accordingly
 				uint32_t size_message = 1;
 				*flag = 0;
+
+				free(c);
+				uint32_t *c = (uint32_t *)malloc(32*(PAYLOAD_ARR_SIZE));
+				memset(c,0,(PAYLOAD_ARR_SIZE));
+
 				while (size_message = incoming_data(s, c, flag)){
 					if (*flag == PAYLOAD){
-						fwrite(c, size_message, 1, fp);
+						fwrite(c, size_message, PAYLOAD_ARR_SIZE, fp);
 						hash_uint32(hash_buff, *c, hash_count++);
 					}else if (size_message < PAYLOAD_SIZE){
 						incoming_data_last(s, c, flag);
