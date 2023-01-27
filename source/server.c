@@ -24,6 +24,7 @@
 #define REMOVE_FLAG 0x0FFFFFFF
 #define PAYLOAD_SIZE 4
 #define PAYLOAD_ARR_SIZE 128
+#define PASS_HANDSHAKE 0
 
 //Global variable used to store file hash and verify integrity	
 uint32_t hash_count = 0;
@@ -98,16 +99,16 @@ int handshake_server(int s){
 
 	if (flag != NULL)
 		free(flag);
-	return 0;
+	return PASS_HANDSHAKE;
 }
 	
 //Takes incoming data, reverses byte order, determines what to do based on flag, returns proper flag
 uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
 {
 	recv(s, c, sizeof(uint32_t)*PAYLOAD_ARR_SIZE, 0);
-	decapsulate((c+128), flag);
+	decapsulate((c+127), flag);
 	if (*flag == PAYLOAD)
-		return PAYLOAD_SIZE;
+		return PAYLOAD_ARR_SIZE;
 	else if (*flag == DIFF_SIZE)
 		//Data with a size_flag is the size in bytes of the next payload
 		return *c;
@@ -166,91 +167,95 @@ int main()
 	addrcli.sin_port = htons(INADDR_ANY);
 	addrcli.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	if (bind(sockid, (struct sockaddr *) &addrport, sizeof(addrport))!= -1){
-		puts("Socket bound..");
+	if (bind(sockid, (struct sockaddr *) &addrport, sizeof(addrport)) == -1){
+		fprintf(stderr,"Could not bind socket");
+	}
+	puts("Socket bound..");
+	
+	FILE *fp;
+	char *filen;
+
+	int status = listen(sockid, WAITERS);
+	for( ; ;){
+		uint32_t *c = (uint32_t *)malloc(sizeof(uint32_t));
+		uint32_t *flag = (uint32_t *)malloc(sizeof(uint32_t));
+		//Remove any stagnant garbage from these memory spaces
+		*c = *c & 0;
+		*flag = *flag & 0;
+		uint32_t *hash_buff = (uint32_t *)malloc(sizeof(uint32_t) * 4);
+		for (int i = 0; i < LENGTH_BUFFER; i++)
+			hash_buff[i] = hash_buff[i] & 0;
+
+		if (c == NULL)
+			continue;
+
+		socklen_t clilen = sizeof(addrcli);		
+		s = accept(sockid, (struct sockaddr *) &addrcli, &clilen);
+		puts("Connection established..");
 		
-		FILE *fp;
-		char *filen;
+		//Get init signal
+		if(handshake_server(s) != PASS_HANDSHAKE){
+			fprintf(stdout, "Could not pass handshake with client.");
+			//Write a retry loop
+			continue;
+		}
+		//Receive filen
+		getfilen(s, &filen);
+		printf("Writing file %s\n", filen);
 
-		int status = listen(sockid, WAITERS);
-		for( ; ;){
-			uint32_t *c = (uint32_t *)malloc(sizeof(uint32_t));
-			uint32_t *flag = (uint32_t *)malloc(sizeof(uint32_t));
-			//Remove any stagnant garbage from these memory spaces
-			*c = *c & 0;
-			*flag = *flag & 0;
-			uint32_t *hash_buff = (uint32_t *)malloc(sizeof(uint32_t) * 4);
-			for (int i = 0; i < LENGTH_BUFFER; i++)
-				hash_buff[i] = hash_buff[i] & 0;
+		//Open file
+		fp = fopen(filen, "w");
+		if(fp == NULL){
+			fprintf(stderr, "Could not write file");
+			exit(1);
+		}
 
-			if (c == NULL)
-				continue;
+		//Take return of incoming_data() and process accordingly
+		uint32_t size_message = 1;
+		*flag = 0;
 
-			socklen_t clilen = sizeof(addrcli);		
-			s = accept(sockid, (struct sockaddr *) &addrcli, &clilen);
-			puts("Connection established..");
-			
-			//Get init signal
-			if(!handshake_server(s)){
-				//Receive filen
-				getfilen(s, &filen);
-				printf("Writing file %s\n", filen);
+		c = (uint32_t *)realloc(c,sizeof(uint32_t)*(PAYLOAD_ARR_SIZE));
+		memset(c,0,(PAYLOAD_ARR_SIZE));
 
-				//Open file
-				fp = fopen(filen, "w");
-				if(fp == NULL){
-					fprintf(stderr, "Could not write file");
-					exit(1);
-				}
-
-				//Take return of incoming_data() and process accordingly
-				uint32_t size_message = 1;
-				*flag = 0;
-
-				free(c);
-				uint32_t *c = (uint32_t *)malloc(32*(PAYLOAD_ARR_SIZE));
-				memset(c,0,(PAYLOAD_ARR_SIZE));
-
-				while (size_message = incoming_data(s, c, flag)){
-					if (*flag == PAYLOAD){
-						fwrite(c, size_message, PAYLOAD_ARR_SIZE, fp);
-						hash_uint32(hash_buff, *c, hash_count++);
-					}else if (size_message < PAYLOAD_SIZE){
-						incoming_data_last(s, c, flag);
-						fwrite(c, size_message, 1, fp);
-						hash_uint32(hash_buff, *c, hash_count++);
-					}
-					if (size_message == HASH_PAYLOAD){
-						if (!compare_hash(hash_buff, c)){
-							fprintf(stdout, "File corruption detected. File hash mismatch. Please retry transfer. %x\n", hash_buff[hashes - 1]);
-						}else{
-							fprintf(stdout, "Matching file hash success: %x\n", hash_buff[hashes - 1]);
-						}
-					}
-				}
-
-				fclose(fp);
-				puts("File write success");
-				
-				//Free any memory not in use until next connection and reset hash
-				if (filen != NULL)
-					free(filen);
-
-				if (c != NULL)
-					free(c);
-				if (flag != NULL)
-					free(flag);
-				
-				if (hash_buff != NULL)
-					free(hash_buff);
-
-				hash_count = 0;
-				hashes = 0;
+		while (size_message = incoming_data(s, c, flag)){
+			if (*flag == PAYLOAD){
+				fwrite(c, size_message, PAYLOAD_ARR_SIZE, fp);
+				hash_uint32(hash_buff, *c, hash_count++);
+			}else if (size_message < PAYLOAD_SIZE){
+				incoming_data_last(s, c, flag);
+				fwrite(c, size_message, 1, fp);
+				hash_uint32(hash_buff, *c, hash_count++);
 			}
-		}	
+			if (size_message == HASH_PAYLOAD){
+				if (!compare_hash(hash_buff, c)){
+					fprintf(stdout, "File corruption detected. File hash mismatch. Please retry transfer. %x\n", hash_buff[hashes - 1]);
+				}else{
+					fprintf(stdout, "Matching file hash success: %x\n", hash_buff[hashes - 1]);
+				}
+			}
+		}
+
+		fclose(fp);
+		puts("File write success");
+		
+		//Free any memory not in use until next connection and reset hash
+		if (filen != NULL)
+			free(filen);
+
+		if (c != NULL)
+			free(c);
+		if (flag != NULL)
+			free(flag);
+		
+		if (hash_buff != NULL)
+			free(hash_buff);
+
+		hash_count = 0;
+		hashes = 0;
+	}
+	
 	
 	int statusc = close(sockid);
 	close(s);
-	}
 	return 0;
 }
