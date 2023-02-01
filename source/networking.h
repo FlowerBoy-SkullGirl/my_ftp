@@ -23,12 +23,33 @@
 #define INIT_FLAG 0x50000000
 #define CORRUPTED_FLAG 0xF0000000
 #define REMOVE_FLAG 0x0FFFFFFF
-#define WAITERS 1
+#define EMPTY_DATA 0x00000000
+#define DEFAULT_PENDING 1
 #define SIZE_CHANGE 2
 #define PAYLOAD_SIZE 3
 #define PAYLOAD_SIZE 4
 #define PAYLOAD_ARR_SIZE 127
 #define PAYLOAD_ARR_SIZE 128
+#define PASS_HANDSHAKE 0
+#define FAIL_HANDSHAKE 1
+#define FTP_FALSE 0
+#define FTP_TRUE 1
+#define DEFAULT_PORT 4414
+
+//Struct of inet_addr for reference
+/*	unsigned int inet_addr(char *str){
+		int a, b, c, d;
+		char arr[4];
+		sscanf(str, "%d.%d.%d.%d", &a, &b, &c, &d);
+		arr[0] = a; arr[1] = b, arr[2] = c, arr[3] = d;
+		return *(unsigned int *)arr;
+	}
+*/	
+
+struct ftp_sock{
+	short port;
+	int max_pending_connections;
+};
 
 //Separates data and flag, returns data
 uint32_t *decapsulate(uint32_t *data, uint32_t *flag)
@@ -66,24 +87,6 @@ int handshake_server(int s){
 	return PASS_HANDSHAKE;
 }
 
-//Reserve the 1st 4 bits for type of data info, last 24 for payload (4 currently unused, in same byte as info flags)
-uint32_t encapsulate(char type, uint32_t data)
-{
-	if (type == PAYLOAD_FLAG){
-		data = data | PAYLOAD;
-	}else if (type == SIZE_FLAG){
-		data = data | DIFF_SIZE;
-	}else if (type == EOF_FLAG){
-		data = data | END_FLAG;
-	}else if (type == HASH_FLAG){
-		data = data | HASH_PAYLOAD;
-	}else{
-		return data | CORRUPTED_FLAG;
-	}
-	
-	return data;
-}
-
 //Initializes transfer of info, waits until server is ready for filename, 0 on success	
 int handshake_client(int sockid, char *sended){
 	//Servers success signal is 1	
@@ -102,11 +105,29 @@ int handshake_client(int sockid, char *sended){
 	//Verify success	
 	if(message == INIT_FLAG){
 		puts("Server returned init signal");
-		return 0;
+		return PASS_HANDSHAKE;
 	}else{
 		fprintf(stderr, "Server did not return signal");
-		return 1;
+		return FAIL_HANDSHAKE;
 	}
+}
+
+//Reserve the 1st 4 bits for type of data info, last 24 for payload (4 currently unused, in same byte as info flags)
+uint32_t encapsulate(char type, uint32_t data)
+{
+	if (type == PAYLOAD_FLAG){
+		data = data | PAYLOAD;
+	}else if (type == SIZE_FLAG){
+		data = data | DIFF_SIZE;
+	}else if (type == EOF_FLAG){
+		data = data | END_FLAG;
+	}else if (type == HASH_FLAG){
+		data = data | HASH_PAYLOAD;
+	}else{
+		return data | CORRUPTED_FLAG;
+	}
+	
+	return data;
 }
 
 #endif

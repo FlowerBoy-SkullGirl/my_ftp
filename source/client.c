@@ -10,10 +10,6 @@
 #include "hashr.h" //Hash algorithm for validating file integrity
 #include "networking.h" //Defines for flags. Functions for send and receive
 
-#define EMPTY_DATA 0x00000000
-#define PASS_HANDSHAKE 0
-#define FAIL_HANDSHAKE 1
-
 //Global hash value to verify data integrity after transmission
 uint32_t hash_total[LENGTH_BUFFER]; //Number of uint32_t in hash
 uint32_t hash_count = 0;
@@ -27,31 +23,6 @@ uint32_t hash_count = 0;
 		return *(unsigned int *)arr;
 	}
 */	
-
-//Initializes transfer of info, waits until server is ready for filename, 0 on success	
-int handshake_client(int sockid, char *sended){
-	//Servers success signal is 1	
-	//Assign the init flag in network order
-	uint32_t message = htonl(INIT_FLAG);
-	
-	//Send a hello and receive the success signal
-	send(sockid, &message, sizeof(uint32_t), 0);
-	//overwrite message to ensure that the data received next is new
-	message = message & EMPTY_DATA;
-	recv(sockid, &message, sizeof(uint32_t), 0);
-	
-	//Make sure byte order
-	message = ntohl(message);
-	
-	//Verify success	
-	if(message == INIT_FLAG){
-		puts("Server returned init signal");
-		return PASS_HANDSHAKE;
-	}else{
-		fprintf(stderr, "Server did not return signal");
-		return FAIL_HANDSHAKE;
-	}
-}
 
 int send_arr(int sockid, FILE *fp, uint32_t *c)
 {
@@ -108,10 +79,10 @@ int main(int argc, char *argv[]){
 
 	//Get ip, assign to str
 	if(argc < 1){
-	puts("enter ip addr");
-	scanf("%s", str);
+		puts("enter ip addr");
+		scanf("%s", str);
 	}else{
-	strcpy(str, argv[1]);
+		strcpy(str, argv[1]);
 	}
 	
 	FILE *fp;

@@ -1,0 +1,44 @@
+Server requirements:
+ 1-If no command line arguments are supplied, supply a text interface to choose a port and maximum number of connections
+ 2-Provide a socket for clients to connect to
+ 3-Accept incoming connections
+   a-Synchronize beginning of transmission with client
+   b-Receive a filename from the client
+     i-Send receipt confirmation
+   c-Receive a filesize from the client
+     i-Send receipt confirmation
+   d-Receive and decapsulate file from client
+     i-Write file to disk
+   e-After writing, calculate file hash
+     i-Receive hash from client
+     ii-Ensure values match
+   f-Continue to accept incoming connections
+ 4-Offer text interface to close program when no clients are connected
+
+Client requirements:
+ 1-If no command line arguments are supplied, offer text interface to choose server address, port, and filename
+ 2-Connect to server socket
+ 3-Synchronize with the server to begin transmission
+   a-Send a filename to the server, excluding any parent directories
+     i-Wait for confirmation
+   b-Send a filesize to the server
+     ii-Wait for confirmation
+   c-Send bytes of the file until EOF
+     i-Encapsulate data at end of each packet to signify purpose of packet
+   d-Calculate a hash for the file
+   e-Send the hash to the server for validation of proper reconstruction
+   f-Close connection
+
+
+List of functions that need to be implemented:
+-set_cli_parameter
+-input_socket_parameters
+    Perhaps a separate input handling header?
+
+
+Possible implementation details:
+-Concurrency
+    -Use pthread to create a file writing thread after a first data is recv'd from the client
+    -Receive the next data while writing the old data
+    -Join the threads before writing to the file again to avoid concurrent overwrites to the same file pointer
+    TEST whether this will improve speed of program or not

@@ -22,4 +22,3 @@ receive an ending signal from the client
 
 close the connection
 
- 

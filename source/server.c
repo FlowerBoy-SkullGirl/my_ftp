@@ -9,11 +9,8 @@
 #include "hashr.h" 
 #include "neworking.h" //Most defines for flags are in this header
 
-#define WAITERS 1
-#define REMOVE_FLAG 0x0FFFFFFF
-#define PAYLOAD_SIZE 4
-#define PAYLOAD_ARR_SIZE 128
-#define PASS_HANDSHAKE 0
+#define FAIL_BIND_SOCKET (-1)
+#define COMMAND_ERROR 1
 
 //Global variable used to store file hash and verify integrity	
 uint32_t hash_count = 0;
@@ -53,42 +50,6 @@ int getfilen(int s, char **filen){
 	send(s, &gotname, sizeof(gotname), 0);
 		
 	return 0;
-}
-	
-//Separates data and flag, returns data
-uint32_t *decapsulate(uint32_t *data, uint32_t *flag)
-{
-	*flag = 0xF0000000 & *data;
-	*data = *data & REMOVE_FLAG;
-	return data;
-}
-
-//Return 0 on successful handshake
-int handshake_server(int s){
-	uint32_t message = 0;
-	uint32_t *mp = &message;
-	uint32_t *flag = (uint32_t *)malloc(sizeof(uint32_t));
-	//Gets message from client
-	recv(s, &message, sizeof(uint32_t), 0);
-	printf("Client sent init message\n");
-
-	//Reorganize received data into host order
-	message = ntohl(message);	
-	decapsulate(mp, flag);	
-	//If message is correct, send an int to confirm server is ready for more data
-	if(*flag != INIT_FLAG){
-		fprintf(stderr, "Did not receive correct signal from client");
-		if (flag != NULL)
-			free(flag);
-		return 1;
-	}
-	puts("Expected init received...replying");
-	message = htonl(INIT_FLAG);
-	send(s, &message, sizeof(uint32_t), 0);
-
-	if (flag != NULL)
-		free(flag);
-	return PASS_HANDSHAKE;
 }
 	
 //Takes incoming data, reverses byte order, determines what to do based on flag, returns proper flag
@@ -138,33 +99,52 @@ int compare_hash(uint32_t *hash_buff, uint32_t *c)
 	}
 }
 
-int main()
+int main(int argc, char *argv[])
 {
 	struct sockaddr_in addrport, addrcli;
 	int sockid = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	int s; 
 	
-	puts("Socket created..");
+	struct ftp_sock *ftp_sock_parameters = (struct ftp_sock *)malloc(sizeof(struct ftp_sock));
+	int invalid_command = FTP_FALSE;
+	ftp_sock_parameters->port = DEFAULT_PORT;
+	ftp_sock_parameters->max_pending_connections = DEFAULT_PENDING;
+
+	if (argc > 1){
+		for(int i = 1; i < argc; i++){
+			invalid_command = set_cli_parameter(argv[i],ftp_sock_parameters);
+			if(invalid_command){
+				fprintf(stderr,"Invalid command line argument, pass -h for help");
+				exit(COMMAND_ERROR);
+			}
+		}
+	}else{
+		input_socket_parameters(ftp_sock_parameters);
+	}
 
 	//Setup socket and ip address structs
 	addrport.sin_family = AF_INET;
-	addrport.sin_port = htons(4414);
+	addrport.sin_port = htons(ftp_sock_parameters->port);
 	addrport.sin_addr.s_addr = htonl(INADDR_ANY);
 	
+	//remove any garbage from addrcli memory space
 	memset(&addrcli, 0, sizeof(addrcli));
 	addrcli.sin_family = AF_INET;
 	addrcli.sin_port = htons(INADDR_ANY);
 	addrcli.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	if (bind(sockid, (struct sockaddr *) &addrport, sizeof(addrport)) == -1){
+	puts("Socket created..");
+
+	if (bind(sockid,(struct sockaddr *) &addrport,sizeof(addrport)) == FAIL_BIND_SOCKET){
 		fprintf(stderr,"Could not bind socket");
+		exit(FAIL_BIND_SOCKET);
 	}
 	puts("Socket bound..");
 	
 	FILE *fp;
 	char *filen;
 
-	int status = listen(sockid, WAITERS);
+	int status = listen(sockid, ftp_sock_parameters->max_pending_connections);
 	for( ; ;){
 		uint32_t *c = (uint32_t *)malloc(sizeof(uint32_t));
 		uint32_t *flag = (uint32_t *)malloc(sizeof(uint32_t));
