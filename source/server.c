@@ -6,21 +6,10 @@
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "hashr.h"
+#include "hashr.h" 
+#include "neworking.h" //Most defines for flags are in this header
 
 #define WAITERS 1
-#define MAXLEN 2048
-#define SIZE_CHANGE 2
-#define PAYLOAD_FLAG 1
-#define SIZE_FLAG 2
-#define EOF_FLAG 3
-#define HASH_FLAG 4
-#define PAYLOAD 0x10000000
-#define DIFF_SIZE 0x20000000
-#define END_FLAG 0x30000000
-#define HASH_PAYLOAD 0x40000000
-#define INIT_FLAG 0x50000000
-#define CORRUPTED FLAG 0xF0000000
 #define REMOVE_FLAG 0x0FFFFFFF
 #define PAYLOAD_SIZE 4
 #define PAYLOAD_ARR_SIZE 128

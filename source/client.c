@@ -7,23 +7,12 @@
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include "hashr.h" //Local header
+#include "hashr.h" //Hash algorithm for validating file integrity
+#include "networking.h" //Defines for flags. Functions for send and receive
 
-#define MAXLEN 2048
-#define PAYLOAD_FLAG 1
-#define SIZE_FLAG 2
-#define EOF_FLAG 3
-#define HASH_FLAG 4
-#define PAYLOAD 0x10000000
-#define DIFF_SIZE 0x20000000
-#define END_FLAG 0x30000000
-#define HASH_PAYLOAD 0x40000000
-#define INIT_FLAG 0x50000000
-#define CORRUPTED_FLAG 0xF0000000
-#define PAYLOAD_SIZE 3
-#define PAYLOAD_ARR_SIZE 127
-#define REMOVE_FLAG 0x0FFFFFFF
 #define EMPTY_DATA 0x00000000
+#define PASS_HANDSHAKE 0
+#define FAIL_HANDSHAKE 1
 
 //Global hash value to verify data integrity after transmission
 uint32_t hash_total[LENGTH_BUFFER]; //Number of uint32_t in hash
@@ -38,24 +27,6 @@ uint32_t hash_count = 0;
 		return *(unsigned int *)arr;
 	}
 */	
-
-//Reserve the 1st 4 bits for type of data info, last 24 for payload (4 currently unused, in same byte as info flags)
-uint32_t encapsulate(char type, uint32_t data)
-{
-	if (type == PAYLOAD_FLAG){
-		data = data | PAYLOAD;
-	}else if (type == SIZE_FLAG){
-		data = data | DIFF_SIZE;
-	}else if (type == EOF_FLAG){
-		data = data | END_FLAG;
-	}else if (type == HASH_FLAG){
-		data = data | HASH_PAYLOAD;
-	}else{
-		return data | CORRUPTED_FLAG;
-	}
-	
-	return data;
-}
 
 //Initializes transfer of info, waits until server is ready for filename, 0 on success	
 int handshake_client(int sockid, char *sended){
@@ -75,10 +46,10 @@ int handshake_client(int sockid, char *sended){
 	//Verify success	
 	if(message == INIT_FLAG){
 		puts("Server returned init signal");
-		return 0;
+		return PASS_HANDSHAKE;
 	}else{
 		fprintf(stderr, "Server did not return signal");
-		return 1;
+		return FAIL_HANDSHAKE;
 	}
 }
 
