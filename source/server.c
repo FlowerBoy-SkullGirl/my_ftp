@@ -7,10 +7,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include "hashr.h" 
-#include "neworking.h" //Most defines for flags are in this header
+#include "networking.h" //Most defines for flags are in this header
 
 #define FAIL_BIND_SOCKET (-1)
 #define COMMAND_ERROR 1
+#define ARG_TOO_SMALL 1
+#define POORLY_FORMED_ARGUMENT 2
+#define SUCCESS 0
+#define FAIL 1
 
 //Global variable used to store file hash and verify integrity	
 uint32_t hash_count = 0;
@@ -56,7 +60,10 @@ int getfilen(int s, char **filen){
 uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
 {
 	recv(s, c, sizeof(uint32_t)*PAYLOAD_ARR_SIZE, 0);
-	decapsulate((c+127), flag);
+	printf("%d\n",*(c+127));
+	printf("%x\n",*(c));
+	decapsulate((c+PAYLOAD_ARR_SIZE-1), flag);
+	fwrite(c,sizeof(uint32_t),PAYLOAD_ARR_SIZE,stdout);
 	if (*flag == PAYLOAD)
 		return PAYLOAD_ARR_SIZE;
 	else if (*flag == DIFF_SIZE)
@@ -99,6 +106,36 @@ int compare_hash(uint32_t *hash_buff, uint32_t *c)
 	}
 }
 
+//Takes argv and an index to parse cli arguments, convert them to int, and set the appropriate values in the socket struct
+int set_cli_parameter(char **arg, int i, struct ftp_sock *sock_params)
+{
+	int port = DEFAULT_PORT;
+	int pending = DEFAULT_PENDING;
+	if (strlen(arg[i]) > 2){
+		return ARG_TOO_SMALL;
+	}
+	if (arg[i][0] != '-'){
+		return POORLY_FORMED_ARGUMENT;
+	}
+	switch (arg[i][1]){
+		case 'p':
+			if ((port = atoi(arg[i+1])) == 0){
+				return POORLY_FORMED_ARGUMENT;
+			}
+			sock_params->port = port;
+			printf("Port set to %d...\n", sock_params->port);
+			return SUCCESS;
+		case 'c':
+			if (pending = atoi(arg[i+1]) == 0){
+				return POORLY_FORMED_ARGUMENT;
+			}
+			sock_params->max_pending_connections = pending;
+		default:
+			return POORLY_FORMED_ARGUMENT;
+	}
+	return FAIL;
+}
+
 int main(int argc, char *argv[])
 {
 	struct sockaddr_in addrport, addrcli;
@@ -111,15 +148,16 @@ int main(int argc, char *argv[])
 	ftp_sock_parameters->max_pending_connections = DEFAULT_PENDING;
 
 	if (argc > 1){
-		for(int i = 1; i < argc; i++){
-			invalid_command = set_cli_parameter(argv[i],ftp_sock_parameters);
+		for(int i = 1; i < argc; i+=2){
+			invalid_command = set_cli_parameter(argv,i,ftp_sock_parameters);
 			if(invalid_command){
 				fprintf(stderr,"Invalid command line argument, pass -h for help");
 				exit(COMMAND_ERROR);
 			}
 		}
 	}else{
-		input_socket_parameters(ftp_sock_parameters);
+		//PLANNED to allow a user to enter values that would have been passed as cli arguments
+		//input_socket_parameters(ftp_sock_parameters);
 	}
 
 	//Setup socket and ip address structs

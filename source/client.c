@@ -27,26 +27,31 @@ uint32_t hash_count = 0;
 int send_arr(int sockid, FILE *fp, uint32_t *c)
 {
 	fseek(fp, 0, SEEK_END);
-	uint32_t endf = ftell(fp);
+	long endf = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
 
-	for (uint32_t i = ftell(fp); i <= (endf - PAYLOAD_ARR_SIZE); i = ftell(fp)){
-		fread(c, PAYLOAD_SIZE, PAYLOAD_ARR_SIZE, fp);
-		*(c+PAYLOAD_ARR_SIZE) = encapsulate(PAYLOAD_FLAG, *(c+PAYLOAD_ARR_SIZE));
-		send(sockid, c, (sizeof(uint32_t)*PAYLOAD_ARR_SIZE)+1, 0);
-		memset(c,0,PAYLOAD_ARR_SIZE+1);
+	for (uint32_t i = ftell(fp); i < (endf - (PAYLOAD_ARR_SIZE*PAYLOAD_SIZE)); i = ftell(fp)){
+		puts("Inner");
+		fread(c, PAYLOAD_SIZE, (PAYLOAD_ARR_SIZE-1), fp);
+		*(c+PAYLOAD_ARR_SIZE-1) = encapsulate(PAYLOAD_FLAG, *(c+PAYLOAD_ARR_SIZE-1));
+		printf("%c\n",*c);
+		fwrite(c,sizeof(uint32_t),PAYLOAD_ARR_SIZE,stdout);
+		send(sockid, c, (sizeof(uint32_t)*PAYLOAD_ARR_SIZE), 0);
+		memset(c,0,PAYLOAD_ARR_SIZE);
 	}
 
-	fread(c, PAYLOAD_SIZE, endf - PAYLOAD_ARR_SIZE, fp);
-	*(c+PAYLOAD_ARR_SIZE) = encapsulate(PAYLOAD_FLAG, *(c+PAYLOAD_ARR_SIZE));
+	fread(c, PAYLOAD_SIZE, (endf - ftell(fp)), fp);
+	*(c+PAYLOAD_ARR_SIZE-1) = encapsulate(PAYLOAD_FLAG, *(c+PAYLOAD_ARR_SIZE-1));
+	printf("%d\n",*(c+PAYLOAD_ARR_SIZE-1));
+	fwrite(c,sizeof(uint32_t),PAYLOAD_ARR_SIZE,stdout);
 	
 	uint32_t payload_remaining = endf - PAYLOAD_ARR_SIZE;
 	payload_remaining = encapsulate(SIZE_FLAG, payload_remaining);
 	payload_remaining = htonl(payload_remaining);
 	send(sockid, &payload_remaining, sizeof(uint32_t), 0);
 
-	send(sockid, c, (sizeof(uint32_t)*PAYLOAD_ARR_SIZE)+1, 0);
-	memset(c,0,PAYLOAD_ARR_SIZE+1);
+	send(sockid, c, (sizeof(uint32_t)*PAYLOAD_ARR_SIZE), 0);
+	memset(c,0,PAYLOAD_ARR_SIZE);
 
 	return endf - ftell(fp);
 }
@@ -165,8 +170,8 @@ int main(int argc, char *argv[]){
 		if(gotit){
 			puts("Server received filen");
 			
-			uint32_t *c = (uint32_t *)realloc(c,32*(PAYLOAD_ARR_SIZE+1));
-			memset(c,0,(PAYLOAD_ARR_SIZE+1));
+			uint32_t *c = (uint32_t *)realloc(c,32*(PAYLOAD_ARR_SIZE));
+			memset(c,0,(PAYLOAD_ARR_SIZE));
 
 			int flag = send_arr(sockid, fp, c);
 			
