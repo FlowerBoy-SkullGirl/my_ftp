@@ -60,10 +60,7 @@ int getfilen(int s, char **filen){
 uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
 {
 	recv(s, c, sizeof(uint32_t)*PAYLOAD_ARR_SIZE, 0);
-	printf("%d\n",*(c+127));
-	printf("%x\n",*(c));
-	decapsulate((c+PAYLOAD_ARR_SIZE-1), flag);
-	fwrite(c,sizeof(uint32_t),PAYLOAD_ARR_SIZE,stdout);
+	decapsulate(c, flag);
 	if (*flag == PAYLOAD)
 		return PAYLOAD_ARR_SIZE;
 	else if (*flag == DIFF_SIZE)
@@ -79,9 +76,8 @@ uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
 //Returns 0 on failure
 uint32_t incoming_data_last(int s, uint32_t *c, uint32_t *flag)
 {
-	recv(s, c, sizeof(uint32_t), 0);
-	*c = ntohl(*c);
-	c = decapsulate(c, flag);
+	recv(s, c, sizeof(uint32_t)*PAYLOAD_ARR_SIZE, 0);
+	decapsulate(c, flag);
 	if (*flag == PAYLOAD)
 		return 1;
 	else if (*flag == EOF_FLAG)
@@ -222,15 +218,15 @@ int main(int argc, char *argv[])
 		*flag = 0;
 
 		c = (uint32_t *)realloc(c,sizeof(uint32_t)*(PAYLOAD_ARR_SIZE));
-		memset(c,0,(PAYLOAD_ARR_SIZE));
+		memset(c,0,(PAYLOAD_ARR_SIZE*PAYLOAD_SIZE));
 
 		while (size_message = incoming_data(s, c, flag)){
 			if (*flag == PAYLOAD){
-				fwrite(c, size_message, PAYLOAD_ARR_SIZE, fp);
+				fwrite(c+1, size_message, PAYLOAD_ARR_SIZE-1, fp);
 				hash_uint32(hash_buff, *c, hash_count++);
 			}else if (size_message < PAYLOAD_SIZE){
 				incoming_data_last(s, c, flag);
-				fwrite(c, size_message, 1, fp);
+				fwrite(c+1, size_message, 1, fp);
 				hash_uint32(hash_buff, *c, hash_count++);
 			}
 			if (size_message == HASH_PAYLOAD){

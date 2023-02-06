@@ -31,27 +31,23 @@ int send_arr(int sockid, FILE *fp, uint32_t *c)
 	fseek(fp, 0, SEEK_SET);
 
 	for (uint32_t i = ftell(fp); i < (endf - (PAYLOAD_ARR_SIZE*PAYLOAD_SIZE)); i = ftell(fp)){
-		puts("Inner");
-		fread(c, PAYLOAD_SIZE, (PAYLOAD_ARR_SIZE-1), fp);
-		*(c+PAYLOAD_ARR_SIZE-1) = encapsulate(PAYLOAD_FLAG, *(c+PAYLOAD_ARR_SIZE-1));
-		printf("%c\n",*c);
-		fwrite(c,sizeof(uint32_t),PAYLOAD_ARR_SIZE,stdout);
+		fread((c+1), PAYLOAD_SIZE, (PAYLOAD_ARR_SIZE-1), fp);
+		*c = encapsulate(PAYLOAD_FLAG, *c);
 		send(sockid, c, (sizeof(uint32_t)*PAYLOAD_ARR_SIZE), 0);
 		memset(c,0,PAYLOAD_ARR_SIZE);
 	}
 
-	fread(c, PAYLOAD_SIZE, (endf - ftell(fp)), fp);
-	*(c+PAYLOAD_ARR_SIZE-1) = encapsulate(PAYLOAD_FLAG, *(c+PAYLOAD_ARR_SIZE-1));
-	printf("%d\n",*(c+PAYLOAD_ARR_SIZE-1));
-	fwrite(c,sizeof(uint32_t),PAYLOAD_ARR_SIZE,stdout);
-	
-	uint32_t payload_remaining = endf - PAYLOAD_ARR_SIZE;
-	payload_remaining = encapsulate(SIZE_FLAG, payload_remaining);
-	payload_remaining = htonl(payload_remaining);
-	send(sockid, &payload_remaining, sizeof(uint32_t), 0);
+	*c & 0;
+	*c = endf - ftell(fp);
+	*c = encapsulate(SIZE_FLAG, *c);
+	send(sockid, c, sizeof(uint32_t)*PAYLOAD_ARR_SIZE, 0);
+	memset(c,0,PAYLOAD_ARR_SIZE*PAYLOAD_SIZE);
 
+	fread(c+1, 1, (endf - ftell(fp)), fp);
+	*c = encapsulate(PAYLOAD_FLAG, *c);
+	
 	send(sockid, c, (sizeof(uint32_t)*PAYLOAD_ARR_SIZE), 0);
-	memset(c,0,PAYLOAD_ARR_SIZE);
+	memset(c,0,PAYLOAD_ARR_SIZE*PAYLOAD_SIZE);
 
 	return endf - ftell(fp);
 }
