@@ -62,10 +62,10 @@ uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
 	recv(s, c, sizeof(uint32_t)*PAYLOAD_ARR_SIZE, 0);
 	decapsulate(c, flag);
 	if (*flag == PAYLOAD)
-		return PAYLOAD_ARR_SIZE;
+		return PAYLOAD_ARR_SIZE*PAYLOAD_SIZE;
 	else if (*flag == DIFF_SIZE)
 		//Data with a size_flag is the size in bytes of the next payload
-		return *c;
+		return *(c+1);
 	else if (*flag == HASH_PAYLOAD)
 		return HASH_PAYLOAD; //could be any large number
 	else if (*flag == EOF_FLAG)
@@ -78,9 +78,13 @@ uint32_t incoming_data_last(int s, uint32_t *c, uint32_t *flag)
 {
 	recv(s, c, sizeof(uint32_t)*PAYLOAD_ARR_SIZE, 0);
 	decapsulate(c, flag);
+	/*
+	 * Not sure why this was here
+	 * change when hash is reenabled
 	if (*flag == PAYLOAD)
 		return 1;
-	else if (*flag == EOF_FLAG)
+	
+	else*/ if (*flag == EOF_FLAG)
 		return 0;
 	return 0;
 }
@@ -222,13 +226,15 @@ int main(int argc, char *argv[])
 
 		while (size_message = incoming_data(s, c, flag)){
 			if (*flag == PAYLOAD){
-				fwrite(c+1, size_message, PAYLOAD_ARR_SIZE-1, fp);
-				hash_uint32(hash_buff, *c, hash_count++);
-			}else if (size_message < PAYLOAD_SIZE){
+				fwrite(c+1, size_message, 1, fp);
+				//hash_uint32(hash_buff, *c, hash_count++);
+			}else if (size_message < PAYLOAD_SIZE*PAYLOAD_ARR_SIZE){
 				incoming_data_last(s, c, flag);
 				fwrite(c+1, size_message, 1, fp);
-				hash_uint32(hash_buff, *c, hash_count++);
+				//hash_uint32(hash_buff, *c, hash_count++);
 			}
+			/*
+			 * Hashing disabled for testing
 			if (size_message == HASH_PAYLOAD){
 				if (!compare_hash(hash_buff, c)){
 					fprintf(stdout, "File corruption detected. File hash mismatch. Please retry transfer. %x\n", hash_buff[hashes - 1]);
@@ -236,6 +242,7 @@ int main(int argc, char *argv[])
 					fprintf(stdout, "Matching file hash success: %x\n", hash_buff[hashes - 1]);
 				}
 			}
+			*/
 		}
 
 		fclose(fp);

@@ -34,17 +34,17 @@ int send_arr(int sockid, FILE *fp, uint32_t *c)
 		fread((c+1), PAYLOAD_SIZE, (PAYLOAD_ARR_SIZE-1), fp);
 		*c = encapsulate(PAYLOAD_FLAG, *c);
 		send(sockid, c, (sizeof(uint32_t)*PAYLOAD_ARR_SIZE), 0);
-		memset(c,0,PAYLOAD_ARR_SIZE);
 	}
 
 	*c & 0;
-	*c = endf - ftell(fp);
+	*(c+1) & 0;
 	*c = encapsulate(SIZE_FLAG, *c);
+	*(c+1) = endf - ftell(fp);
 	send(sockid, c, sizeof(uint32_t)*PAYLOAD_ARR_SIZE, 0);
 	memset(c,0,PAYLOAD_ARR_SIZE*PAYLOAD_SIZE);
 
 	fread(c+1, 1, (endf - ftell(fp)), fp);
-	*c = encapsulate(PAYLOAD_FLAG, *c);
+	*c = encapsulate(EOF_FLAG, *c);
 	
 	send(sockid, c, (sizeof(uint32_t)*PAYLOAD_ARR_SIZE), 0);
 	memset(c,0,PAYLOAD_ARR_SIZE*PAYLOAD_SIZE);
@@ -122,72 +122,75 @@ int main(int argc, char *argv[]){
 	char recieved = 0;
 
 	//Send preliminary hello
-	int serverready = handshake_client(sockid, sended);
+	int handshake_error = handshake_client(sockid, sended);
 
-	uint32_t *c = (uint32_t *)malloc(32);
+	uint32_t *c = (uint32_t *)malloc(PAYLOAD_SIZE);
 	if (c == NULL){
 		puts("Could not allocate memory for filereader");
 		exit(1);
 	}
 	//Sends contents of a file
-	if(fp != NULL && !serverready){
-		//truncate filename before transmission
-		char *filenout = (char *)malloc(strlen(filen)+1);
-		strcpy(filenout, filen);
-		int path = 1;
-		while(path){
-			path = strcspn(filenout, "/");
-			if (path != strlen(filenout)){
-				memcpy(filenout, &filenout[path+1], (strlen(filenout) - path));
-				path = 1;
-			}else{
-				path = 0;
-			}
-		}
-		filenout[strlen(filenout)+1] = '\0';
-
-		//send size filename
-		uint32_t filensize = strlen(filenout) + 1;
-		char gotfilesize = 0;
-		filensize = htonl(filensize);
-		send(sockid, &filensize, sizeof(uint32_t), 0);
-		recv(sockid, &gotfilesize, 1, 0);
-
-		//Send filen
-		send(sockid, filenout, strlen(filenout), 0);
-		printf("Sent filename: %s\n", filenout);
-		recv(sockid, &gotit, MAXLEN, 0);
-		//Make sure bytes arrived in order
-		gotit = ntohl(gotit);	
-		
-		printf("Server returned: %d\n", gotit);
-
-		//main loop
-		if(gotit){
-			puts("Server received filen");
-			
-			uint32_t *c = (uint32_t *)realloc(c,32*(PAYLOAD_ARR_SIZE));
-			memset(c,0,(PAYLOAD_ARR_SIZE));
-
-			int flag = send_arr(sockid, fp, c);
-			
-			if (flag){
-				uint32_t payload_remaining = flag;
-				payload_remaining = encapsulate(SIZE_FLAG, payload_remaining);
-				payload_remaining = htonl(payload_remaining);
-				send(sockid, &payload_remaining, sizeof(uint32_t), 0);
-
-				fread(c, flag, 1, fp);
-				hash_uint32(hash_total, *c, hash_count++);
-				*c = encapsulate(PAYLOAD_FLAG, *c);
-				*c = htonl(*c);
-				send(sockid, c, sizeof(uint32_t), 0);
-			}
-		}			 
-		fclose(fp);
+	if (fp == NULL){
+		fprintf(stderr, "File was closed. Ending transmission");
+		//send an corrupt signal
+		exit(0);
+	}else if (handshake_error){
+		fprintf(stderr, "Could not intialize connection.");
+		exit(0);
 	}
-	if (c != NULL)
-		free(c);
+
+	//truncate filename before transmission
+	char *filenout = (char *)malloc(strlen(filen)+1);
+	strcpy(filenout, filen);
+	int path = 1;
+	while(path){
+		path = strcspn(filenout, "/");
+		if (path != strlen(filenout)){
+			memcpy(filenout, &filenout[path+1], (strlen(filenout) - path));
+			path = 1;
+		}else{
+			path = 0;
+		}
+	}
+	filenout[strlen(filenout)+1] = '\0';
+
+	//send size filename
+	uint32_t filensize = strlen(filenout) + 1;
+	char gotfilesize = 0;
+	filensize = htonl(filensize);
+	send(sockid, &filensize, sizeof(uint32_t), 0);
+	recv(sockid, &gotfilesize, 1, 0);
+
+	//Send filen
+	send(sockid, filenout, strlen(filenout), 0);
+	printf("Sent filename: %s\n", filenout);
+	recv(sockid, &gotit, MAXLEN, 0);
+	//Make sure bytes arrived in order
+	gotit = ntohl(gotit);	
+	
+	printf("Server returned: %d\n", gotit);
+
+	//main loop
+	if(!gotit){
+		fprintf(stderr, "Did not receive response. Ending session.");
+		exit(0);
+	}
+	puts("Server received filen");
+	
+	c = (uint32_t *)realloc(c,PAYLOAD_SIZE*(PAYLOAD_ARR_SIZE));
+	memset(c,0,(PAYLOAD_ARR_SIZE*PAYLOAD_SIZE));
+
+	int flag = send_arr(sockid, fp, c);
+	
+	if (flag){
+		fprintf(stdout,"Error: data not sent. %d bits.",flag);
+	}
+
+	fclose(fp);
+
+	/* 
+	 * Temporarily disable hashing
+	 *
 	//Send server the hash of the file
 	fprintf(stdout, "Sending hash to server: ");
 	for (int i = 0; i < LENGTH_BUFFER; i++){
@@ -198,11 +201,17 @@ int main(int argc, char *argv[]){
 		send(sockid, hash_total + i, sizeof(uint32_t), 0);
 		fprintf(stdout, "%x", hash_total[i]);
 	}
+	*/
+
 	fprintf(stdout, "\n"); //create newline
 	//Inform server that all data is received
-	uint32_t end_signal_client = END_FLAG;
-	end_signal_client = htonl(end_signal_client);
-	send(sockid, &end_signal_client, 1, 0);
+	*c & EMPTY_DATA;
+	*c = END_FLAG;
+	send(sockid, c, PAYLOAD_SIZE*PAYLOAD_ARR_SIZE, 0);
+
+	if (c != NULL)
+		free(c);
+
 	puts("Sent end of file flag");
 	//close connection
 	int statusc = close(sockid);
