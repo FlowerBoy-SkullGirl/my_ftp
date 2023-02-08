@@ -61,6 +61,7 @@ uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
 {
 	recv(s, c, sizeof(uint32_t)*PAYLOAD_ARR_SIZE, 0);
 	decapsulate(c, flag);
+	fwrite((c+1),sizeof(uint32_t),PAYLOAD_ARR_SIZE-1,stdout);
 	if (*flag == PAYLOAD)
 		return PAYLOAD_ARR_SIZE*PAYLOAD_SIZE;
 	else if (*flag == DIFF_SIZE)
@@ -78,6 +79,7 @@ uint32_t incoming_data_last(int s, uint32_t *c, uint32_t *flag)
 {
 	recv(s, c, sizeof(uint32_t)*PAYLOAD_ARR_SIZE, 0);
 	decapsulate(c, flag);
+	fwrite((c+1),sizeof(uint32_t),PAYLOAD_ARR_SIZE-1,stdout);
 	/*
 	 * Not sure why this was here
 	 * change when hash is reenabled
