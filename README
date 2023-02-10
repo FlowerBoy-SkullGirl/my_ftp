@@ -5,7 +5,7 @@ Server: requires no args
 Client: command server-ipv4 /path/to/file
 	pathname will not be preserved once sent over network
 
-Roughly 1.5 minutes per GB
+Roughly 1.5 seconds per GB
 
 
 Todo: Improve the hashing algorithm to improve security and accuracy
