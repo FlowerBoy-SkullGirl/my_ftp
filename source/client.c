@@ -36,8 +36,8 @@ int send_arr(int sockid, FILE *fp, uint32_t *c)
 		send(sockid, c, (sizeof(uint32_t)*PAYLOAD_ARR_SIZE), 0);
 	}
 
-	*c & 0;
-	*(c+1) & 0;
+	*c = EMPTY_DATA;
+	*(c+1) = EMPTY_DATA;
 	*c = encapsulate(SIZE_FLAG, *c);
 	*(c+1) = endf - ftell(fp);
 	send(sockid, c, sizeof(uint32_t)*PAYLOAD_ARR_SIZE, 0);
