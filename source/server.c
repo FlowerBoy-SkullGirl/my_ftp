@@ -59,10 +59,10 @@ int getfilen(int s, char **filen){
 //Takes incoming data, reverses byte order, determines what to do based on flag, returns proper flag
 uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
 {
-	recv(s, c, sizeof(uint32_t)*PAYLOAD_ARR_SIZE, 0);
+	recv(s, c, PACKET_BYTES, 0);
 	decapsulate(c, flag);
 	if (*flag == PAYLOAD)
-		return PAYLOAD_ARR_SIZE*PAYLOAD_SIZE;
+		return PAYLOAD_BYTES;
 	else if (*flag == DIFF_SIZE)
 		//Data with a size_flag is the size in bytes of the next payload
 		return *(c+1);
@@ -77,7 +77,7 @@ uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
 uint32_t incoming_data_last(int s, uint32_t *c, uint32_t *flag)
 {
 	puts("Data last");
-	recv(s, c, sizeof(uint32_t)*PAYLOAD_ARR_SIZE, 0);
+	recv(s, c, PACKET_BYTES, 0);
 	decapsulate(c, flag);
 	/*
 	 * Not sure why this was here
@@ -222,14 +222,14 @@ int main(int argc, char *argv[])
 		uint32_t size_message = 1;
 		*flag = 0;
 
-		c = (uint32_t *)realloc(c,sizeof(uint32_t)*(PAYLOAD_ARR_SIZE));
-		memset(c,0,(PAYLOAD_ARR_SIZE*PAYLOAD_SIZE));
+		c = (uint32_t *)realloc(c,PACKET_BYTES);
+		memset(c,0,PACKET_BYTES);
 
 		while (size_message = incoming_data(s, c, flag)){
 			if (*flag == PAYLOAD){
-				fwrite(c+1, size_message-PAYLOAD_SIZE, 1, fp);
+				fwrite(c+1, PAYLOAD_BYTES, 1, fp);
 				//hash_uint32(hash_buff, *c, hash_count++);
-			}else if (size_message < PAYLOAD_SIZE*PAYLOAD_ARR_SIZE){
+			}else if (size_message < PAYLOAD_BYTES){
 				incoming_data_last(s, c, flag);
 				fwrite(c+1, size_message, 1, fp);
 				//hash_uint32(hash_buff, *c, hash_count++);

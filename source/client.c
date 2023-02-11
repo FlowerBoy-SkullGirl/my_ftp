@@ -29,25 +29,27 @@ int send_arr(int sockid, FILE *fp, uint32_t *c)
 	fseek(fp, 0, SEEK_END);
 	long endf = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
+	//used to 
+	uint32_t *c_data = c+1;
 
-	for (uint32_t i = ftell(fp); i < (endf - (PAYLOAD_ARR_SIZE*PAYLOAD_SIZE)); i = ftell(fp)){
-		fread((c+1), PAYLOAD_SIZE, (PAYLOAD_ARR_SIZE-1), fp);
+	for (uint32_t i = ftell(fp); i < (endf - (PAYLOAD_BYTES)); i = ftell(fp)){
+		fread(c_data, PAYLOAD_SIZE, (PAYLOAD_ARR_SIZE-1), fp);
 		*c = encapsulate(PAYLOAD_FLAG, *c);
-		send(sockid, c, (sizeof(uint32_t)*PAYLOAD_ARR_SIZE), 0);
+		send(sockid, c, PACKET_BYTES, 0);
 	}
 
 	*c = EMPTY_DATA;
-	*(c+1) = EMPTY_DATA;
+	*c_data = EMPTY_DATA;
 	*c = encapsulate(SIZE_FLAG, *c);
-	*(c+1) = endf - ftell(fp);
-	send(sockid, c, sizeof(uint32_t)*PAYLOAD_ARR_SIZE, 0);
-	memset(c,0,PAYLOAD_ARR_SIZE*PAYLOAD_SIZE);
+	*c_data = endf - ftell(fp);
+	send(sockid, c, PACKET_BYTES, 0);
+	memset(c,0,PACKET_BYTES);
 
-	fread(c+1, 1, (endf - ftell(fp)), fp);
+	fread(c_data, 1, (endf - ftell(fp)), fp);
 	*c = encapsulate(EOF_FLAG, *c);
 	
-	send(sockid, c, (sizeof(uint32_t)*PAYLOAD_ARR_SIZE), 0);
-	memset(c,0,PAYLOAD_ARR_SIZE*PAYLOAD_SIZE);
+	send(sockid, c, PACKET_BYTES, 0);
+	memset(c,0,PACKET_BYTES);
 
 	return endf - ftell(fp);
 }
@@ -177,8 +179,8 @@ int main(int argc, char *argv[]){
 	}
 	puts("Server received filen");
 	
-	c = (uint32_t *)realloc(c,PAYLOAD_SIZE*(PAYLOAD_ARR_SIZE));
-	memset(c,0,(PAYLOAD_ARR_SIZE*PAYLOAD_SIZE));
+	c = (uint32_t *)realloc(c,PACKET_BYTES);
+	memset(c,0,(PACKET_BYTES));
 
 	int flag = send_arr(sockid, fp, c);
 	
@@ -207,7 +209,7 @@ int main(int argc, char *argv[]){
 	//Inform server that all data is received
 	*c & EMPTY_DATA;
 	*c = END_FLAG;
-	send(sockid, c, PAYLOAD_SIZE*PAYLOAD_ARR_SIZE, 0);
+	send(sockid, c, PACKET_BYTES, 0);
 
 	if (c != NULL)
 		free(c);

@@ -26,13 +26,15 @@
 #define EMPTY_DATA 0x00000000
 #define DEFAULT_PENDING 1
 #define SIZE_CHANGE 2
-#define PAYLOAD_SIZE 4
+#define PAYLOAD_SIZE 4 //sizeof(uint32_t)
 #define PAYLOAD_ARR_SIZE 128
 #define PASS_HANDSHAKE 0
 #define FAIL_HANDSHAKE 1
 #define FTP_FALSE 0
 #define FTP_TRUE 1
 #define DEFAULT_PORT 4414
+#define PACKET_BYTES (PAYLOAD_SIZE*PAYLOAD_ARR_SIZE)
+#define PAYLOAD_BYTES (PAYLOAD_SIZE*(PAYLOAD_ARR_SIZE-1))
 
 //Struct of inet_addr for reference
 /*	unsigned int inet_addr(char *str){
