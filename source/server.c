@@ -223,15 +223,16 @@ int main(int argc, char *argv[])
 		*flag = 0;
 
 		c = (uint32_t *)realloc(c,PACKET_BYTES);
+		uint32_t *c_data = c+1;
 		memset(c,0,PACKET_BYTES);
 
 		while (size_message = incoming_data(s, c, flag)){
 			if (*flag == PAYLOAD){
-				fwrite(c+1, PAYLOAD_BYTES, 1, fp);
+				fwrite(c_data, PAYLOAD_BYTES, 1, fp);
 				//hash_uint32(hash_buff, *c, hash_count++);
 			}else if (size_message < PAYLOAD_BYTES){
 				incoming_data_last(s, c, flag);
-				fwrite(c+1, size_message, 1, fp);
+				fwrite(c_data, size_message, 1, fp);
 				//hash_uint32(hash_buff, *c, hash_count++);
 			}
 			/*
