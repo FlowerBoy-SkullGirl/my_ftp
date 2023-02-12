@@ -59,8 +59,19 @@ int getfilen(int s, char **filen){
 //Takes incoming data, reverses byte order, determines what to do based on flag, returns proper flag
 uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
 {
-	recv(s, c, PACKET_BYTES, 0);
+	memset(c,0,PACKET_BYTES);
+	memset(flag,0,sizeof(uint32_t));
+	uint32_t r_tell = 0;
+	r_tell = recv(s, c, PACKET_BYTES, 0);
+	//Manpage is vague on whether TCP bytes get discarded when reading excess of buffer..
+	//This COULD be a very bad loop
+	while (r_tell < PACKET_BYTES){
+		r_tell += recv(s, c+(r_tell/PAYLOAD_SIZE), PACKET_BYTES - r_tell, 0);
+	}
+	printf("\nReceived: %d bytes\n", r_tell);
+	printf("First two uints: %x %x\n", *c, *(c+1));
 	decapsulate(c, flag);
+	printf("Flag %x\n", *flag);
 	if (*flag == PAYLOAD)
 		return PAYLOAD_BYTES;
 	else if (*flag == DIFF_SIZE)
@@ -68,24 +79,34 @@ uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
 		return *(c+1);
 	else if (*flag == HASH_PAYLOAD)
 		return HASH_PAYLOAD; //could be any large number
-	else if (*flag == EOF_FLAG)
-		return 0;
+	else if (*flag == END_FLAG){
+		return CORRUPTED_FLAG;
+	}
+	if (r_tell == 0){
+		printf("\nStatus 0\n");
+		return CORRUPTED_FLAG;
+	}
 	return 0;
 }
 
 //Returns 0 on failure
-uint32_t incoming_data_last(int s, uint32_t *c, uint32_t *flag)
+uint32_t incoming_data_last(int s, uint32_t *c, uint32_t *flag, uint32_t expected_bytes)
 {
 	puts("Data last");
-	recv(s, c, PACKET_BYTES, 0);
+	memset(c,0,PACKET_BYTES);
+	uint32_t r_tell = 0;
+	while (r_tell < expected_bytes)
+		r_tell += recv(s, c+(r_tell/PAYLOAD_SIZE), expected_bytes, 0);
 	decapsulate(c, flag);
+	printf("Flag %x\n", *flag);
+	fwrite((c+1), expected_bytes, 1, stdout);
 	/*
 	 * Not sure why this was here
 	 * change when hash is reenabled
 	if (*flag == PAYLOAD)
 		return 1;
 	
-	else*/ if (*flag == EOF_FLAG)
+	else*/ if (*flag == END_FLAG)
 		return 0;
 	return 0;
 }
@@ -227,13 +248,18 @@ int main(int argc, char *argv[])
 		memset(c,0,PACKET_BYTES);
 
 		while (size_message = incoming_data(s, c, flag)){
+			if (size_message == CORRUPTED_FLAG){
+				printf("Received empty or corrupted packet. Ignoring..\n");
+				continue;
+			}
 			if (*flag == PAYLOAD){
 				fwrite(c_data, PAYLOAD_BYTES, 1, fp);
 				//hash_uint32(hash_buff, *c, hash_count++);
 			}else if (size_message < PAYLOAD_BYTES){
-				incoming_data_last(s, c, flag);
+				incoming_data_last(s, c, flag, size_message);
 				fwrite(c_data, size_message, 1, fp);
 				//hash_uint32(hash_buff, *c, hash_count++);
+				break;
 			}
 			/*
 			 * Hashing disabled for testing
