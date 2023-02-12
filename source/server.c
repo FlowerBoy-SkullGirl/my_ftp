@@ -59,8 +59,8 @@ int getfilen(int s, char **filen){
 //Takes incoming data, reverses byte order, determines what to do based on flag, returns proper flag
 uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
 {
-	memset(c,0,PACKET_BYTES);
-	memset(flag,0,sizeof(uint32_t));
+	/*memset(c,0,PACKET_BYTES);
+	memset(flag,0,sizeof(uint32_t)); */
 	uint32_t r_tell = 0;
 	r_tell = recv(s, c, PACKET_BYTES, 0);
 	//Manpage is vague on whether TCP bytes get discarded when reading excess of buffer..
@@ -77,10 +77,11 @@ uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
 	else if (*flag == HASH_PAYLOAD)
 		return HASH_PAYLOAD; //could be any large number
 	else if (*flag == END_FLAG){
+		//This flag should only be received by incoming_data_last
 		return CORRUPTED_FLAG;
 	}
 	if (r_tell == 0){
-		printf("\nStatus 0\n");
+		printf("\nReceived 0 bytes or an error occurred\n");
 		return CORRUPTED_FLAG;
 	}
 	return 0;
