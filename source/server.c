@@ -68,10 +68,7 @@ uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
 	while (r_tell < PACKET_BYTES){
 		r_tell += recv(s, c+(r_tell/PAYLOAD_SIZE), PACKET_BYTES - r_tell, 0);
 	}
-	printf("\nReceived: %d bytes\n", r_tell);
-	printf("First two uints: %x %x\n", *c, *(c+1));
 	decapsulate(c, flag);
-	printf("Flag %x\n", *flag);
 	if (*flag == PAYLOAD)
 		return PAYLOAD_BYTES;
 	else if (*flag == DIFF_SIZE)
@@ -99,7 +96,6 @@ uint32_t incoming_data_last(int s, uint32_t *c, uint32_t *flag, uint32_t expecte
 		r_tell += recv(s, c+(r_tell/PAYLOAD_SIZE), expected_bytes, 0);
 	decapsulate(c, flag);
 	printf("Flag %x\n", *flag);
-	fwrite((c+1), expected_bytes, 1, stdout);
 	/*
 	 * Not sure why this was here
 	 * change when hash is reenabled
