@@ -42,6 +42,8 @@ int send_arr(int sockid, FILE *fp, uint32_t *c)
 	*c_data = EMPTY_DATA;
 	*c = encapsulate(SIZE_FLAG, *c);
 	*c_data = endf - ftell(fp);
+	//This is to add the size of te flag which is a uint32_t type
+	*c_data += PAYLOAD_SIZE;
 	send(sockid, c, PACKET_BYTES, 0);
 	memset(c,0,PACKET_BYTES);
 
@@ -92,7 +94,7 @@ int main(int argc, char *argv[]){
 	//Get file to transfer, assign filen
 	if(argc == 3){
 		strcpy(filen, argv[2]);
-		fp = fopen(filen, "r");
+		fp = fopen(filen, "rb");
 		if(fp == NULL){
 			fprintf(stderr, "Could not open file\n");
 			exit(1);

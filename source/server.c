@@ -97,6 +97,8 @@ uint32_t incoming_data_last(int s, uint32_t *c, uint32_t *flag, uint32_t expecte
 		r_tell += recv(s, c+(r_tell/PAYLOAD_SIZE), expected_bytes, 0);
 	decapsulate(c, flag);
 	printf("Flag %x\n", *flag);
+	printf("Length %d\n", expected_bytes);
+	fwrite(c+1,expected_bytes,1,stdout);
 	/*
 	 * Not sure why this was here
 	 * change when hash is reenabled
@@ -230,7 +232,7 @@ int main(int argc, char *argv[])
 		printf("Writing file %s\n", filen);
 
 		//Open file
-		fp = fopen(filen, "w");
+		fp = fopen(filen, "wb");
 		if(fp == NULL){
 			fprintf(stderr, "Could not write file");
 			exit(1);
@@ -254,7 +256,7 @@ int main(int argc, char *argv[])
 				//hash_uint32(hash_buff, *c, hash_count++);
 			}else if (size_message < PAYLOAD_BYTES){
 				incoming_data_last(s, c, flag, size_message);
-				fwrite(c_data, size_message, 1, fp);
+				fwrite(c_data, size_message - PAYLOAD_SIZE, 1, fp);
 				//hash_uint32(hash_buff, *c, hash_count++);
 				break;
 			}
