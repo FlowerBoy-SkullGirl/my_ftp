@@ -151,6 +151,10 @@ int set_cli_parameter(char **arg, int i, struct ftp_sock *sock_params)
 				return POORLY_FORMED_ARGUMENT;
 			}
 			sock_params->max_pending_connections = pending;
+			return SUCCESS;
+		case 'h':
+			printf("Allowed arguments:\n-p [Number]\n\tSpecify a port number.\n-c [Number]\n\tSpecify the number of maximum waiting connections on the socket.\n-h\n\tDisplay this message.\n");
+			exit(0);
 		default:
 			return POORLY_FORMED_ARGUMENT;
 	}
