@@ -55,6 +55,18 @@ int getfilen(int s, char **filen){
 		
 	return 0;
 }
+
+long get_file_size(int s)
+{
+	long size_received = 0;
+	long success_return = htonl(FTP_TRUE);
+	recv(s, &size_received, sizeof(long), 0);
+	size_received = ntohl(size_received);
+
+	send(s, &success_return, sizeof(success_return),0);
+
+	return size_received;
+}
 	
 //Takes incoming data, reverses byte order, determines what to do based on flag, returns proper flag
 uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
@@ -233,7 +245,8 @@ int main(int argc, char *argv[])
 		}
 		//Receive filen
 		getfilen(s, &filen);
-		printf("Writing file %s\n", filen);
+		long file_size_incoming = get_file_size(s);
+		printf("Writing file %s\t%d Bytes\n", filen, file_size_incoming);
 
 		//Open file
 		fp = fopen(filen, "wb");

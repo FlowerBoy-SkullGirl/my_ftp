@@ -24,12 +24,26 @@ uint32_t hash_count = 0;
 	}
 */	
 
+int send_file_size(int sockid, FILE *fp)
+{
+	long return_status = 0;
+	fseek(fp, 0, SEEK_END);
+	long endf = htonl(ftell(fp));
+	fseek(fp, 0, SEEK_SET);
+
+	send(sockid, &endf, sizeof(endf), 0);
+	recv(sockid, &return_status, sizeof(long), 0);
+	return_status = ntohl(return_status);
+	
+	return PASS_HANDSHAKE;
+}
+
 int send_arr(int sockid, FILE *fp, uint32_t *c)
 {
 	fseek(fp, 0, SEEK_END);
 	long endf = ftell(fp);
 	fseek(fp, 0, SEEK_SET);
-	//used to 
+	//used to avoid (c+1) being reused everywhere
 	uint32_t *c_data = c+1;
 
 	for (uint32_t i = ftell(fp); i < (endf - (PAYLOAD_BYTES)); i = ftell(fp)){
@@ -174,6 +188,9 @@ int main(int argc, char *argv[]){
 	recv(sockid, &gotit, MAXLEN, 0);
 	//Make sure bytes arrived in order
 	gotit = ntohl(gotit);	
+
+	//Send the size of the file
+	send_file_size(sockid, fp);
 	
 	printf("Server returned: %d\n", gotit);
 
