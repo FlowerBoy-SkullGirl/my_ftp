@@ -83,9 +83,10 @@ int main(int argc, char *argv[]){
 	char buff[MAXLEN];
 
 	//Get ip, assign to str
-	if(argc < 1){
-		puts("enter ip addr");
+	if(argc < 2){
+		puts("Enter the ipv4 address of the server:");
 		scanf("%s", str);
+		printf("%s", str);
 	}else{
 		strcpy(str, argv[1]);
 	}
@@ -94,14 +95,16 @@ int main(int argc, char *argv[]){
 	//Get file to transfer, assign filen
 	if(argc == 3){
 		strcpy(filen, argv[2]);
-		fp = fopen(filen, "rb");
-		if(fp == NULL){
-			fprintf(stderr, "Could not open file\n");
-			exit(1);
-		}
-	}else if(argc > 1 && argc < 3){
-		puts("enter filename");
+	}else if(argc < 3){
+		puts("Enter the name of the file to be sent(with full path):");
 		scanf("%s", filen);
+		printf("%s", filen);
+	}
+
+	fp = fopen(filen, "rb");
+	if(fp == NULL){
+		fprintf(stderr, "Could not open file\n");
+		exit(1);
 	}
 
 	//Sets the server address and port
