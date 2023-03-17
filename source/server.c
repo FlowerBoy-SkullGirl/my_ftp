@@ -19,6 +19,15 @@
 //Global variable used to store file hash and verify integrity	
 uint32_t hash_count = 0;
 int hashes = 0;
+int session_count = 0;
+
+//Send a session id to a client to control the flow of information between multiple sessions
+int set_session_id(int s)
+{
+	int msg = htonl(session_count);
+	session_count++;
+	send(s, &msg, sizeof(msg), 0);
+}
 
 //Returns 0 on success, sends confirmation to client before more data is received
 int getfilen(int s, char **filen){
@@ -67,6 +76,8 @@ long get_file_size(int s)
 
 	return size_received;
 }
+
+
 	
 //Takes incoming data, reverses byte order, determines what to do based on flag, returns proper flag
 uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
@@ -82,6 +93,8 @@ uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
 	}
 	decapsulate(c, flag);
 	if (*flag == PAYLOAD)
+		return PAYLOAD_BYTES;
+	else if (*flag == META_FLAG)
 		return PAYLOAD_BYTES;
 	else if (*flag == DIFF_SIZE)
 		//Data with a size_flag is the size in bytes of the next payload
@@ -262,11 +275,18 @@ int main(int argc, char *argv[])
 		c = (uint32_t *)realloc(c,PACKET_BYTES);
 		uint32_t *c_data = c+1;
 		memset(c,0,PACKET_BYTES);
+		
+		struct metadata *file_meta;
 
 		while (size_message = incoming_data(s, c, flag)){
 			if (size_message == CORRUPTED_FLAG){
 				printf("Received empty or corrupted packet. Ignoring..\n");
 				continue;
+			}
+			if (*flag == META_FLAG){
+				file_meta = pack_metadata_packet(c);
+				fp = fopen //STOPPED WORKING HERE
+`				continue;
 			}
 			if (*flag == PAYLOAD){
 				fwrite(c_data, PAYLOAD_BYTES, 1, fp);

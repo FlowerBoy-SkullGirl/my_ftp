@@ -24,6 +24,17 @@ uint32_t hash_count = 0;
 	}
 */	
 
+int send_metadata(int sockid, struct metadata file_meta, uint32_t *buffer, uint32_t session_mask)
+{
+	if (!build_metadata_packet(file_meta, buffer, session_mask)){
+		fprintf(stderr, "Could not arrange metadata\n");
+		exit(FTP_FALSE);
+	}
+	send(sockid, buffer, PACKET_BYTES, 0);
+
+	return FTP_TRUE;
+}
+
 int send_file_size(int sockid, FILE *fp)
 {
 	long return_status = 0;
