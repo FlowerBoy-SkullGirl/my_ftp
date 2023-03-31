@@ -1,3 +1,7 @@
+CURRENT ISSUE:
+file metadata build and pack segfault
+has to do with incorrect file name size
+
 Server requirements:
  1-If no command line arguments are supplied, supply a text interface to choose a port and maximum number of connections
  2-Provide a socket for clients to connect to

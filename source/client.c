@@ -84,8 +84,7 @@ int send_arr(int sockid, FILE *fp, uint32_t *c)
 	*c_data = EMPTY_DATA;
 	*c = encapsulate(SIZE_FLAG, *c);
 	*c_data = endf - ftell(fp);
-	//This is to add the size of te flag which is a uint32_t type
-	*c_data += PAYLOAD_SIZE;
+
 	send(sockid, c, PACKET_BYTES, 0);
 	memset(c,0,PACKET_BYTES);
 
@@ -177,6 +176,7 @@ int main(int argc, char *argv[]){
 		fprintf(stderr, "Could not intialize connection.");
 		exit(0);
 	}
+	puts("Handshake to server success.");
 
 	char *filen_nopath = truncate_file_path(filen);
 	struct metadata *fp_meta;
@@ -190,6 +190,10 @@ int main(int argc, char *argv[]){
 
 	while (num_of_files > 0){
 		send_metadata(sockid, *fp_meta, c, session_mask); 
+		printf("Sent metadata to server for %s\n", fp_meta->name);
+		for (int i = 0; i < 30; i++){
+			printf("%x", *(c + i));
+		}
 		memset(c,0,(PACKET_BYTES));
 
 		int flag = send_arr(sockid, fp, c);

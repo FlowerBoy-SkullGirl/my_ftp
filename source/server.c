@@ -41,6 +41,8 @@ int handshake_server(int s, uint32_t *buffer, struct queue *qp, int *session_id_
 	struct queue *current_session = NULL;
 	current_session = append_queue(qp, session_id_list, s);
 
+	printf("Assigned session id to client\n");
+
 	//Begin packet building
 	memset(buffer,0,PACKET_BYTES);
 	*buffer = SESSION_ID_FLAG;
@@ -55,55 +57,6 @@ int handshake_server(int s, uint32_t *buffer, struct queue *qp, int *session_id_
 		return fatal_error_hangup(s, buffer, PACKET_BYTES, CORRUPTED_FLAG);
 
 	return FTP_TRUE;
-}
-
-//Takes incoming data, reverses byte order, determines what to do based on flag, returns proper flag
-uint32_t incoming_data(int s, uint32_t *c, uint32_t *flag)
-{
-	/*memset(c,0,PACKET_BYTES);
-	memset(flag,0,sizeof(uint32_t)); */
-	if (read_buffer(s, c, PACKET_BYTES) == 0)
-		return CORRUPTED_FLAG;
-
-	decapsulate(c, flag);
-	if (*flag == PAYLOAD)
-		return PAYLOAD_BYTES;
-	else if (*flag == META_FLAG)
-		return PAYLOAD_BYTES;
-	else if (*flag == DIFF_SIZE)
-		//Data with a size_flag is the size in bytes of the next payload
-		return *(c+1);
-	else if (*flag == HASH_PAYLOAD)
-		return HASH_PAYLOAD; //could be any large number
-	else if (*flag == END_FLAG){
-		//This flag should only be received by incoming_data_last
-		return CORRUPTED_FLAG;
-	}else if(*flag == END_SESSION){
-		return END_SESSION;
-	}
-	return 0;
-}
-
-//Returns 0 on failure
-uint32_t incoming_data_last(int s, uint32_t *c, uint32_t *flag, uint32_t expected_bytes)
-{
-	puts("Data last");
-	memset(c,0,PACKET_BYTES);
-	uint32_t r_tell = read_buffer(s, c, expected_bytes);
-
-	decapsulate(c, flag);
-	printf("Flag %x\n", *flag);
-	printf("Length %d\n", expected_bytes);
-	fwrite(c+1,expected_bytes,1,stdout);
-	/*
-	 * Not sure why this was here
-	 * change when hash is reenabled
-	if (*flag == PAYLOAD)
-		return 1;
-	
-	else*/ if (*flag == END_FLAG)
-		return 0;
-	return 0;
 }
 
 //Compares hash from client to local hash, returns 1 on success
@@ -210,10 +163,8 @@ int main(int argc, char *argv[])
 	int status = listen(sockid, ftp_sock_parameters->max_pending_connections);
 	for( ; ;){
 		uint32_t *c = (uint32_t *)malloc(PACKET_BYTES);
-		uint32_t *flag = (uint32_t *)malloc(sizeof(uint32_t));
 		//Remove any stagnant garbage from these memory spaces
 		*c = *c & 0;
-		*flag = *flag & 0;
 		uint32_t *hash_buff = (uint32_t *)malloc(sizeof(uint32_t) * 4);
 		for (int i = 0; i < LENGTH_BUFFER; i++)
 			hash_buff[i] = hash_buff[i] & 0;
@@ -227,26 +178,28 @@ int main(int argc, char *argv[])
 		
 		//Get init signal
 		if(handshake_server(s, c, qp, session_id_list) != FTP_TRUE){
-			fprintf(stdout, "Could not pass handshake with client.");
+			fprintf(stdout, "Could not pass handshake with client.\n");
 			//Write a retry loop
 			continue;
 		}
+		fprintf(stdout, "Passed handshake with client.\n");
 
 		//Take return of incoming_data() and process accordingly
 		uint32_t size_message = 1;
-		*flag = 0;
 
 		uint32_t *c_data = c+1;
 		memset(c,0,PACKET_BYTES);
 
 		struct metadata *fp_meta = NULL;
 		
-		while (size_message = incoming_data(s, c, flag)){
+		uint32_t expected_bytes = PACKET_BYTES;
+		while (size_message = read_buffer(s, c, PACKET_BYTES)){
+			puts("Received data");
 			if (size_message == CORRUPTED_FLAG){
 				printf("Received empty or corrupted packet. Ignoring..\n");
 				continue;
 			}
-			if (*flag == END_SESSION){
+			if (*c == END_SESSION){
 				printf("Session ended by client.\n");
 
 				//Do queue management here
@@ -257,7 +210,7 @@ int main(int argc, char *argv[])
 					free_metadata(fp_meta);
 				break;
 			}
-			if (*flag == META_FLAG){
+			if (*c == META_FLAG){
 				fp_meta = pack_metadata_packet(c);
 				//Open file
 				fp = fopen(fp_meta->name, "wb");
@@ -267,16 +220,24 @@ int main(int argc, char *argv[])
 				}
 				printf("Writing file %s\t%d Bytes\n", fp_meta->name, fp_meta->size);
 			}
-			if (*flag == PAYLOAD){
+			if (*c == PAYLOAD){
 				fwrite(c_data, PAYLOAD_BYTES, 1, fp);
 				//hash_uint32(hash_buff, *c, hash_count++);
-			}else if (size_message < PAYLOAD_BYTES){
-				incoming_data_last(s, c, flag, size_message);
-				fwrite(c_data, size_message - PAYLOAD_SIZE, 1, fp);
+			}
+			if (*c == DIFF_SIZE)
+			{
+				expected_bytes = *(c + 1);
+			}
+			if (*c == END_FLAG){
+				read_buffer(s, c, PACKET_BYTES);
+				fwrite(c_data, expected_bytes, 1, fp);
 				
 				//New file may be opened before connection closes
 				if (fp_meta != NULL)
 					free_metadata(fp_meta);
+				if (fp != NULL)
+					fclose(fp);
+				puts("File write success");
 				//hash_uint32(hash_buff, *c, hash_count++);
 				break;
 			}
@@ -292,7 +253,8 @@ int main(int argc, char *argv[])
 			*/
 		}
 
-		fclose(fp);
+		if (fp != NULL)
+			fclose(fp);
 		puts("File write success");
 		
 		//Free any memory not in use until next connection and reset hash
@@ -301,8 +263,6 @@ int main(int argc, char *argv[])
 
 		if (c != NULL)
 			free(c);
-		if (flag != NULL)
-			free(flag);
 		
 		if (hash_buff != NULL)
 			free(hash_buff);

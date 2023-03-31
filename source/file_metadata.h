@@ -89,7 +89,8 @@ int free_metadata(struct metadata *data)
 int build_metadata_packet(struct metadata data, uint32_t *packet, uint32_t session_mask)
 {
 	memset(packet,0,PACKET_BYTES);
-	*packet = META_FLAG | session_mask;
+	*packet = META_FLAG;// | session_mask;
+	//temporarily disabled while session id not in use
 	uint32_t *packet_contents = packet;
 	char *packet_string;
 	char *name = data.name;
@@ -136,6 +137,8 @@ struct metadata *pack_metadata_packet(uint32_t *packet)
 
 	//ALLOC MEMORY FOR STRING NAME
 	file_data->name = (char *) malloc(file_data->name_size);
+
+	printf("File size %d, name size %d\n", file_data->size, file_data->name_size);
 
 	for (int i = 0; i < file_data->name_size; i++){
 		*(file_data->name) = *filen;
