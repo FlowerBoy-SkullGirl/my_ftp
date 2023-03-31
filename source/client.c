@@ -9,6 +9,8 @@
 #include <unistd.h>
 #include "hashr.h" //Hash algorithm for validating file integrity
 #include "networking.h" //Defines for flags. Functions for send and receive
+#include "session_queue.h"
+#include "file_metadata.h"
 
 //Global hash value to verify data integrity after transmission
 uint32_t hash_total[LENGTH_BUFFER]; //Number of uint32_t in hash
@@ -33,20 +35,6 @@ int send_metadata(int sockid, struct metadata file_meta, uint32_t *buffer, uint3
 	send(sockid, buffer, PACKET_BYTES, 0);
 
 	return FTP_TRUE;
-}
-
-int send_file_size(int sockid, FILE *fp)
-{
-	long return_status = 0;
-	fseek(fp, 0, SEEK_END);
-	long endf = htonl(ftell(fp));
-	fseek(fp, 0, SEEK_SET);
-
-	send(sockid, &endf, sizeof(endf), 0);
-	recv(sockid, &return_status, sizeof(long), 0);
-	return_status = ntohl(return_status);
-	
-	return PASS_HANDSHAKE;
 }
 
 int handshake_client(int s, uint32_t *buffer, int *session_id)
@@ -110,24 +98,6 @@ int send_arr(int sockid, FILE *fp, uint32_t *c)
 	return endf - ftell(fp);
 }
 
-//Return value is size of remaining file
-int send_payload(int sockid, FILE *fp, uint32_t *c)
-{
-	fseek(fp, 0, SEEK_END);
-	uint32_t endf = ftell(fp);
-	fseek(fp, 0, SEEK_SET);
-
-	for (uint32_t i = ftell(fp); i <= (endf - PAYLOAD_SIZE); i = ftell(fp)){
-		fread(c, PAYLOAD_ARR_SIZE, 1, fp);
-		hash_uint32(hash_total, *c, hash_count++);
-		*c = encapsulate(PAYLOAD_FLAG, *c);
-		*c = htonl(*c);
-		send(sockid, c, sizeof(uint32_t), 0);
-		*c = *c & EMPTY_DATA;
-	}
-	return endf - ftell(fp);
-}
-
 int main(int argc, char *argv[]){
 	struct sockaddr_in addrserv;
 	int sockid = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -135,6 +105,7 @@ int main(int argc, char *argv[]){
 	char recieveded[MAXLEN];
 	char filen[MAXLEN];
 	char buff[MAXLEN];
+	int num_of_files = 0;
 
 	//Get ip, assign to str
 	if(argc < 2){
@@ -149,10 +120,12 @@ int main(int argc, char *argv[]){
 	//Get file to transfer, assign filen
 	if(argc == 3){
 		strcpy(filen, argv[2]);
+		num_of_files++;
 	}else if(argc < 3){
 		puts("Enter the name of the file to be sent(with full path):");
 		scanf("%s", filen);
 		printf("%s", filen);
+		num_of_files++;
 	}
 
 	fp = fopen(filen, "rb");
@@ -182,12 +155,17 @@ int main(int argc, char *argv[]){
 	char failure = 0;
 	char recieved = 0;
 
-	//Send preliminary hello
-	int handshake_error = handshake_client(sockid, sended);
+	uint32_t *c = (uint32_t *)malloc(PACKET_BYTES);
+	int *session_id = (int *) malloc(sizeof(int));
 
-	uint32_t *c = (uint32_t *)malloc(PAYLOAD_SIZE);
+	//Send preliminary hello
+	int handshake_error = handshake_client(sockid, c, session_id);
+
+	uint32_t session_mask = *session_id;
+	free(session_id);
+
 	if (c == NULL){
-		puts("Could not allocate memory for filereader");
+		puts("Could not allocate memory for buffer");
 		exit(1);
 	}
 	//Sends contents of a file
@@ -195,79 +173,49 @@ int main(int argc, char *argv[]){
 		fprintf(stderr, "File was closed. Ending transmission");
 		//send an corrupt signal
 		exit(0);
-	}else if (handshake_error){
+	}else if (handshake_error == FTP_FALSE){
 		fprintf(stderr, "Could not intialize connection.");
 		exit(0);
 	}
 
-	//truncate filename before transmission
-	char *filenout = (char *)malloc(strlen(filen)+1);
-	strcpy(filenout, filen);
-	int path = 1;
-	while(path){
-		path = strcspn(filenout, "/");
-		if (path != strlen(filenout)){
-			memcpy(filenout, &filenout[path+1], (strlen(filenout) - path));
-			path = 1;
-		}else{
-			path = 0;
-		}
-	}
-	filenout[strlen(filenout)+1] = '\0';
+	char *filen_nopath = truncate_file_path(filen);
+	struct metadata *fp_meta;
+	//Pack_File allocates memory, must free later with free_metadata
+	fp_meta = pack_file_data(fp, filen_nopath);
 
-	//send size filename
-	uint32_t filensize = strlen(filenout) + 1;
-	char gotfilesize = 0;
-	filensize = htonl(filensize);
-	send(sockid, &filensize, sizeof(uint32_t), 0);
-	recv(sockid, &gotfilesize, 1, 0);
-
-	//Send filen
-	send(sockid, filenout, strlen(filenout), 0);
-	printf("Sent filename: %s\n", filenout);
-	recv(sockid, &gotit, MAXLEN, 0);
-	//Make sure bytes arrived in order
-	gotit = ntohl(gotit);	
-
-	//Send the size of the file
-	send_file_size(sockid, fp);
-	
-	printf("Server returned: %d\n", gotit);
+	if (filen_nopath != NULL)
+		free(filen_nopath);
 
 	//main loop
-	if(!gotit){
-		fprintf(stderr, "Did not receive response. Ending session.");
-		exit(0);
-	}
-	puts("Server received filen");
+
+	while (num_of_files > 0){
+		send_metadata(sockid, *fp_meta, c, session_mask); 
+		memset(c,0,(PACKET_BYTES));
+
+		int flag = send_arr(sockid, fp, c);
 	
-	c = (uint32_t *)realloc(c,PACKET_BYTES);
-	memset(c,0,(PACKET_BYTES));
+		if (flag){
+			fprintf(stdout,"Error: data not sent. %d bits.",flag);
+		}
 
-	int flag = send_arr(sockid, fp, c);
-	
-	if (flag){
-		fprintf(stdout,"Error: data not sent. %d bits.",flag);
+		fclose(fp);
+		/* 
+		 * Temporarily disable hashing
+		 *
+		//Send server the hash of the file
+		fprintf(stdout, "Sending hash to server: ");
+		for (int i = 0; i < LENGTH_BUFFER; i++){
+			if (hash_total[i] > REMOVE_FLAG)
+				hash_total[i] = hash_total[i] & REMOVE_FLAG;
+			hash_total[i] = encapsulate(HASH_FLAG, hash_total[i]);
+			hash_total[i] = htonl(hash_total[i]);
+			send(sockid, hash_total + i, sizeof(uint32_t), 0);
+			fprintf(stdout, "%x", hash_total[i]);
+		}
+		*/
+		--num_of_files;
 	}
 
-	fclose(fp);
-
-	/* 
-	 * Temporarily disable hashing
-	 *
-	//Send server the hash of the file
-	fprintf(stdout, "Sending hash to server: ");
-	for (int i = 0; i < LENGTH_BUFFER; i++){
-		if (hash_total[i] > REMOVE_FLAG)
-			hash_total[i] = hash_total[i] & REMOVE_FLAG;
-		hash_total[i] = encapsulate(HASH_FLAG, hash_total[i]);
-		hash_total[i] = htonl(hash_total[i]);
-		send(sockid, hash_total + i, sizeof(uint32_t), 0);
-		fprintf(stdout, "%x", hash_total[i]);
-	}
-	*/
-
-	fprintf(stdout, "\n"); //create newline
 	//Inform server that all data is received
 	*c & EMPTY_DATA;
 	*c = END_FLAG;
@@ -275,8 +223,9 @@ int main(int argc, char *argv[]){
 
 	if (c != NULL)
 		free(c);
+	if (fp_meta != NULL)
+		free_metadata(fp_meta);
 
-	puts("Sent end of file flag");
 	//close connection
 	int statusc = close(sockid);
 

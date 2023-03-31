@@ -19,10 +19,11 @@ int *build_id_arr(int max_size)
 	int *available_ids = (int *) malloc(sizeof(int) * MAX_ID);
 
 	if (available_ids == NULL){
-		fprintf("Unable to build queue id list\n");
+		fprintf(stdout, "Unable to build queue id list\n");
 		exit(FTP_FALSE);
 	}
-
+	
+	int j = 0;
 	for (int i = 1; i <= MAX_ID; i++){
 		j = i - 1;
 		*(available_ids + j) = i;
@@ -37,7 +38,7 @@ int get_available_id(int *id_list)
 		if (*(id_list + i) == USED_ID){
 			continue;
 		}else{
-			id = id_list;
+			id = *(id_list + i);
 			*(id_list + i) = USED_ID;
 		}
 	}
@@ -91,7 +92,7 @@ struct queue *remove_queue(struct queue *root, int *id_list, int sock)
 {
 	struct queue *prev = root;
 	struct queue *current = root->next;
-	struct queue next = root->next->next;
+	struct queue *next = root->next->next;
 
 	if (root == NULL)
 		return root;

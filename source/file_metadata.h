@@ -24,13 +24,34 @@ struct metadata{
 
 uint32_t first_sig_byte_long(long x)
 {
-	return (uint32_t) ((x & 0xFFFFFFFF00000000) >> sizeof(uint32_t))	
+	return (uint32_t) ((x & 0xFFFFFFFF00000000) >> sizeof(uint32_t));	
 }
 
 uint32_t last_sig_byte_long(long x)
 {
-	return (uint32_t) (x & 0x00000000FFFFFFFF)	
+	return (uint32_t) (x & 0x00000000FFFFFFFF);	
 }
+
+char *truncate_file_path(char *filen_full)
+{
+	char *filenout = (char *)malloc(strlen(filen_full)+1);
+	strcpy(filenout, filen_full);
+	int path = 1;
+
+	while(path){
+		path = strcspn(filenout, "/");
+		if (path != strlen(filenout)){
+			memcpy(filenout, &filenout[path+1], (strlen(filenout) - path));
+			path = 1;
+		}else{
+			path = 0;
+		}
+	}
+	filenout[strlen(filenout)+1] = '\0';
+	
+	return filenout;
+}
+
 
 //Allocates memory for filename that must be freed. Returns a metadata struct pointer
 struct metadata *pack_file_data(FILE *fp, char *filen)
@@ -71,13 +92,15 @@ int build_metadata_packet(struct metadata data, uint32_t *packet, uint32_t sessi
 	*packet = META_FLAG | session_mask;
 	uint32_t *packet_contents = packet;
 	char *packet_string;
+	char *name = data.name;
 
 	if (sizeof(long) == sizeof(uint32_t)){
 		*(++packet_contents) = 0;
 		*(++packet_contents) = data.size;
 		*(++packet_contents) = 0;
 		*(++packet_contents) = data.name_size;
-		packet_string = packet_contents;
+		//cast uint32 *memory to char *
+		packet_string = (char *) packet_contents;
 		for (int i = 0; i < data.name_size; i++){
 			*(++packet_string) = *name;
 			name++;
@@ -88,7 +111,7 @@ int build_metadata_packet(struct metadata data, uint32_t *packet, uint32_t sessi
 		*(++packet_contents) = last_sig_byte_long(data.size);
 		*(++packet_contents) = first_sig_byte_long(data.name_size);
 		*(++packet_contents) = last_sig_byte_long(data.name_size);
-		packet_string = packet_contents;
+		packet_string = (char *) packet_contents;
 		for (int i = 0; i < data.name_size; i++){
 			*(++packet_string) = *name;
 			name++;
@@ -101,7 +124,8 @@ int build_metadata_packet(struct metadata data, uint32_t *packet, uint32_t sessi
 struct metadata *pack_metadata_packet(uint32_t *packet)
 {
 	struct metadata *file_data = (struct metadata *) malloc(sizeof(struct metadata));
-	char *filen = packet + OFFSET_FILE_NAME;
+	//cast uint memory as char *
+	char *filen =(char *) (packet + OFFSET_FILE_NAME);
 
 	//FILE SIZE
 	file_data->size = file_data->size | (*(packet + OFFSET_FILE_SIZE) << sizeof(uint32_t));

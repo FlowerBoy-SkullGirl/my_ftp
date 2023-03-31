@@ -100,59 +100,6 @@ uint32_t fatal_error_hangup(int sock, uint32_t *buffer, long buffer_size, uint32
 	return FTP_FALSE;
 }
 
-//Confirms synchronization at the application layer
-int handshake_server(int s){
-	uint32_t message = 0;
-	uint32_t *mp = &message;
-	uint32_t *flag = (uint32_t *)malloc(sizeof(uint32_t));
-	//Gets message from client
-	recv(s, &message, sizeof(uint32_t), 0);
-	printf("Client sent init message\n");
-
-	//Reorganize received data into host order
-	message = ntohl(message);	
-	decapsulate(mp, flag);	
-	//If message is correct, send an int to confirm server is ready for more data
-	if(*flag != INIT_FLAG){
-		fprintf(stderr, "Did not receive correct signal from client");
-		if (flag != NULL)
-			free(flag);
-		return 1;
-	}
-	puts("Expected init received...replying");
-	message = htonl(INIT_FLAG);
-	send(s, &message, sizeof(uint32_t), 0);
-
-	if (flag != NULL)
-		free(flag);
-	return PASS_HANDSHAKE;
-}
-
-//Initializes transfer of info, waits until server is ready for filename, 0 on success	
-int handshake_client(int sockid, char *sended){
-	//Servers success signal is 1	
-	//Assign the init flag in network order
-	uint32_t message = htonl(INIT_FLAG);
-	
-	//Send a hello and receive the success signal
-	send(sockid, &message, sizeof(uint32_t), 0);
-	//overwrite message to ensure that the data received next is new
-	message = message & EMPTY_DATA;
-	recv(sockid, &message, sizeof(uint32_t), 0);
-	
-	//Make sure byte order
-	message = ntohl(message);
-	
-	//Verify success	
-	if(message == INIT_FLAG){
-		puts("Server returned init signal");
-		return PASS_HANDSHAKE;
-	}else{
-		fprintf(stderr, "Server did not return signal");
-		return FAIL_HANDSHAKE;
-	}
-}
-
 //Reserve the 1st 4 bits for type of data info, last 24 for payload (4 currently unused, in same byte as info flags)
 uint32_t encapsulate(char type, uint32_t data)
 {
