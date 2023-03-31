@@ -49,6 +49,35 @@ int send_file_size(int sockid, FILE *fp)
 	return PASS_HANDSHAKE;
 }
 
+int handshake_client(int s, uint32_t *buffer, int *session_id)
+{
+	int offset_major_byte = 1;
+	int offset_minor_byte = 2;
+
+	memset(buffer, 0, PACKET_BYTES);
+	*buffer = SESSION_START;
+	*(buffer + offset_major_byte) = STANDARD_VERSION_MAJ;
+	*(buffer + offset_minor_byte) = STANDARD_VERSION_MIN;
+	
+	send(s, buffer, PACKET_BYTES, 0);
+
+	if (read_buffer(s, buffer, PACKET_BYTES) != PACKET_BYTES)
+		return fatal_error_hangup(s, buffer, PACKET_BYTES, MISSING_DATA);
+	if (*buffer == END_SESSION){
+		fprintf(stderr, "Server returned error %x\n", *(buffer+1));
+		exit(FTP_FALSE);
+	}
+	if (*buffer != SESSION_ID_FLAG)
+		return fatal_error_hangup(s, buffer, PACKET_BYTES, UNEXPECTED_FLAG);
+
+	*session_id = *(buffer + 1);
+	
+	//Confirm receipt of correct id
+	send(s, buffer, PACKET_BYTES, 0);
+
+	return FTP_TRUE;
+}
+
 int send_arr(int sockid, FILE *fp, uint32_t *c)
 {
 	fseek(fp, 0, SEEK_END);

@@ -8,6 +8,8 @@
 #include <unistd.h>
 #include "hashr.h" 
 #include "networking.h" //Most defines for flags are in this header
+#include "file_metadata.h"
+#include "session_queue.h"
 
 #define FAIL_BIND_SOCKET (-1)
 #define COMMAND_ERROR 1
@@ -19,14 +21,40 @@
 //Global variable used to store file hash and verify integrity	
 uint32_t hash_count = 0;
 int hashes = 0;
-int session_count = 0;
 
-//Send a session id to a client to control the flow of information between multiple sessions
-int set_session_id(int s)
+int handshake_server(int s, uint32_t *buffer, struct queue *qp, int *session_id_list)
 {
-	int msg = htonl(session_count);
-	session_count++;
-	send(s, &msg, sizeof(msg), 0);
+	int offset_major_byte = 1;
+	int offset_minor_byte = 2;
+	//Recv the session_start signal
+	if (read_buffer(s, buffer, PACKET_BYTES) != PACKET_BYTES){
+		return fatal_error_hangup(s, buffer, PACKET_BYTES, MISSING_DATA);
+	}else if (*buffer != SESSION_START){
+		return fatal_error_hangup(s, buffer, PACKET_BYTES, UNEXPECTED_FLAG);
+	}
+	//Check for matching version of FTP standard
+	if ((*(buffer + offset_major_byte) != STANDARD_VERSION_MAJ) || (*(buffer + offset_minor_byte) != STANDARD_VERSION_MIN)){
+		return fatal_error_hangup(s, buffer, PACKET_BYTES, VERSION_MISMATCH);
+	}
+	
+	//Determine a session id for the client and send it
+	struct queue *current_session = NULL;
+	current_session = append_queue(qp, session_id_list, s);
+
+	//Begin packet building
+	memset(buffer,0,PACKET_BYTES);
+	*buffer = SESSION_ID_FLAG;
+	*(buffer + 1) = current_session->session_id;
+
+	send(s, buffer, PACKET_BYTES, 0);
+
+	//Receive a final confirmation
+	if (read_buffer(s, buffer, PACKET_BYTES) != PACKET_BYTES)
+		return fatal_error_hangup(s, buffer, PACKET_BYTES, MISSING_DATA);
+	if (*buffer != SESSION_ID_FLAG || *(buffer + 1) != current_session->session_id)
+		return fatal_error_hangup(s, buffer, PACKET_BYTES, CORRUPTED_FLAG);
+
+	return FTP_TRUE;
 }
 
 //Returns 0 on success, sends confirmation to client before more data is received
