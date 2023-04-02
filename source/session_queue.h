@@ -14,6 +14,7 @@ struct queue{
 	struct queue* next;
 };
 
+//Builds an array from 1 to max_size of integers.
 int *build_id_arr(int max_size)
 {
 	int *available_ids = (int *) malloc(sizeof(int) * MAX_ID);
@@ -31,6 +32,7 @@ int *build_id_arr(int max_size)
 	return available_ids;
 }
 
+//Finds the first integer in the array that has a value less than MAX_ID, sets that value in the array to USED_ID, and returns the value.
 int get_available_id(int *id_list)
 {
 	int id = 0;
@@ -49,6 +51,7 @@ int get_available_id(int *id_list)
 	return id;
 }
 
+//Sets the index of id to id instead of USED_ID
 int *return_id(int *id_list, int id)
 {
 	int id_index = id - 1;

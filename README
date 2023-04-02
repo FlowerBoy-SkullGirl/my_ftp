@@ -1,8 +1,11 @@
 My FTP!
 Send files over a network socket!
 
-Server: requires no args
-Client: command server-ipv4 /path/to/file
+Server: requires no command line arguments to use default port 4414
+	Port can be specified with -p [number]
+	Number of waiting connections can be specified with -c [number]
+	-h for Help message
+Client: command [server-ipv4] /path/to/file
 	pathname will not be preserved once sent over network
 
 Roughly 1.5 seconds per GB

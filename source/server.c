@@ -154,7 +154,6 @@ int main(int argc, char *argv[])
 	puts("Socket bound..");
 	
 	FILE *fp;
-	char *filen;
 
 	struct queue *qp = queue_root();
 	//be sure to free this later
@@ -192,9 +191,13 @@ int main(int argc, char *argv[])
 
 		struct metadata *fp_meta = NULL;
 		
+		/*
+		 * Main loop for each connection.
+		 * First 4 bytes will be a flag
+		 * Remaining bytes are data
+		 */
 		uint32_t expected_bytes = PACKET_BYTES;
 		while (size_message = read_buffer(s, c, PACKET_BYTES)){
-			puts("Received data");
 			if (size_message == CORRUPTED_FLAG){
 				printf("Received empty or corrupted packet. Ignoring..\n");
 				continue;
@@ -206,8 +209,10 @@ int main(int argc, char *argv[])
 				//return_id(session_id_list, 0);
 				//remove_queue(root, session_id_list, s);
 
-				if (fp_meta != NULL)
+				if (fp_meta != NULL){
 					free_metadata(fp_meta);
+					fp_meta = NULL;
+				}
 				break;
 			}
 			if (*c == META_FLAG){
@@ -227,19 +232,21 @@ int main(int argc, char *argv[])
 			if (*c == DIFF_SIZE)
 			{
 				expected_bytes = *(c + 1);
+				printf("Last payload is %d\n", expected_bytes);
 			}
 			if (*c == END_FLAG){
-				read_buffer(s, c, PACKET_BYTES);
 				fwrite(c_data, expected_bytes, 1, fp);
-				
 				//New file may be opened before connection closes
-				if (fp_meta != NULL)
+				if (fp_meta != NULL){
 					free_metadata(fp_meta);
-				if (fp != NULL)
+					fp_meta = NULL;
+				}
+				if (fp != NULL){
 					fclose(fp);
-				puts("File write success");
+					fp = NULL;
+				}
+				puts("Client sent EOF. File write success");
 				//hash_uint32(hash_buff, *c, hash_count++);
-				break;
 			}
 			/*
 			 * Hashing disabled for testing
@@ -253,26 +260,30 @@ int main(int argc, char *argv[])
 			*/
 		}
 
-		if (fp != NULL)
-			fclose(fp);
-		puts("File write success");
-		
-		//Free any memory not in use until next connection and reset hash
-		if (filen != NULL)
-			free(filen);
 
-		if (c != NULL)
-			free(c);
+		if (fp != NULL){
+			fclose(fp);
+			fp = NULL;
+		}
 		
-		if (hash_buff != NULL)
+		if (c != NULL){
+			free(c);
+			c = NULL;
+		}
+		
+		if (hash_buff != NULL){
 			free(hash_buff);
+			hash_buff = NULL;
+		}
 
 		hash_count = 0;
 		hashes = 0;
 	}
 
-	if (session_id_list != NULL)
+	if (session_id_list != NULL){
 		free(session_id_list);
+		session_id_list = NULL;
+	}
 	
 	int statusc = close(sockid);
 	close(s);

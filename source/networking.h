@@ -91,9 +91,10 @@ uint32_t read_buffer(int s, uint32_t *buffer, long buffer_size)
 	return size_read;
 }
 
+//Sends an end session signal with an accompanying error message. 
 uint32_t fatal_error_hangup(int sock, uint32_t *buffer, long buffer_size, uint32_t error_flag)
 {
-	memset(buffer, 0, PACKET_BYTES);
+	memset(buffer, 0, buffer_size);
 	*buffer = END_SESSION;
 	*(buffer + 1) = error_flag;
 	send(sock, buffer, buffer_size, 0);

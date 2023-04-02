@@ -53,7 +53,10 @@ char *truncate_file_path(char *filen_full)
 }
 
 
-//Allocates memory for filename that must be freed. Returns a metadata struct pointer
+/*
+ * Allocates memory for filename that must be freed. Returns a metadata struct pointer
+ * Takes file info IN and structured info OUT
+ */
 struct metadata *pack_file_data(FILE *fp, char *filen)
 {
 	struct metadata *fp_data;
@@ -69,6 +72,7 @@ struct metadata *pack_file_data(FILE *fp, char *filen)
 	return fp_data;
 }
 
+//Used as a destructor for any metadata pointers and the memory allocated for the file name. Should always be called instead of simply free.
 int free_metadata(struct metadata *data)
 {
 	if (data == NULL)
@@ -107,21 +111,27 @@ int build_metadata_packet(struct metadata data, uint32_t *packet, uint32_t sessi
 			name++;
 		}
 		return PACKET_BYTES;
+	//Most likely case is long as 64 bit integer, which must be broken into 32 bit segments.
 	}else if (sizeof(long) == (2 * sizeof(uint32_t))){
 		*(++packet_contents) = first_sig_byte_long(data.size);
 		*(++packet_contents) = last_sig_byte_long(data.size);
 		*(++packet_contents) = first_sig_byte_long(data.name_size);
 		*(++packet_contents) = last_sig_byte_long(data.name_size);
-		packet_string = (char *) packet_contents;
+		packet_string = (char *) (++packet_contents);
 		for (int i = 0; i < data.name_size; i++){
-			*(++packet_string) = *name;
+			*(packet_string) = *name;
+			packet_string++;
 			name++;
 		}
+		*packet_string = '\0';
 		return PACKET_BYTES;
 	}
 	return FTP_FALSE;
 }
 
+/*
+ * Takes a packet that has been read containing metadata and deserializes it into a metadata struct
+ */
 struct metadata *pack_metadata_packet(uint32_t *packet)
 {
 	struct metadata *file_data = (struct metadata *) malloc(sizeof(struct metadata));
@@ -133,18 +143,18 @@ struct metadata *pack_metadata_packet(uint32_t *packet)
 	file_data->size = file_data->size | *(packet + OFFSET_FILE_SIZE + 1);
 	//FILE NAME SIZE
 	file_data->name_size = file_data->name_size | (*(packet + OFFSET_FILE_NAME_SIZE) << sizeof(uint32_t));
-	file_data->name_size = file_data->name_size | (*(packet + OFFSET_FILE_NAME_SIZE + 1) << sizeof(uint32_t));
+	file_data->name_size = file_data->name_size | *(packet + OFFSET_FILE_NAME_SIZE + 1);
 
 	//ALLOC MEMORY FOR STRING NAME
 	file_data->name = (char *) malloc(file_data->name_size);
-
-	printf("File size %d, name size %d\n", file_data->size, file_data->name_size);
+	char *temp = file_data->name;
 
 	for (int i = 0; i < file_data->name_size; i++){
-		*(file_data->name) = *filen;
-		file_data->name++;
+		*temp = *filen;
+		temp++;
 		filen++;
 	}
+	*temp = '\0';
 	return file_data;
 }
 

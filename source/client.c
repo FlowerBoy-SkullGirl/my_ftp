@@ -89,7 +89,7 @@ int send_arr(int sockid, FILE *fp, uint32_t *c)
 	memset(c,0,PACKET_BYTES);
 
 	fread(c_data, 1, (endf - ftell(fp)), fp);
-	*c = encapsulate(EOF_FLAG, *c);
+	*c = END_FLAG;
 	
 	send(sockid, c, PACKET_BYTES, 0);
 	memset(c,0,PACKET_BYTES);
@@ -191,9 +191,7 @@ int main(int argc, char *argv[]){
 	while (num_of_files > 0){
 		send_metadata(sockid, *fp_meta, c, session_mask); 
 		printf("Sent metadata to server for %s\n", fp_meta->name);
-		for (int i = 0; i < 30; i++){
-			printf("%x", *(c + i));
-		}
+
 		memset(c,0,(PACKET_BYTES));
 
 		int flag = send_arr(sockid, fp, c);
@@ -203,6 +201,7 @@ int main(int argc, char *argv[]){
 		}
 
 		fclose(fp);
+		printf("File sent successfully\n");
 		/* 
 		 * Temporarily disable hashing
 		 *
@@ -222,8 +221,9 @@ int main(int argc, char *argv[]){
 
 	//Inform server that all data is received
 	*c & EMPTY_DATA;
-	*c = END_FLAG;
+	*c = END_SESSION;
 	send(sockid, c, PACKET_BYTES, 0);
+	printf("Ending session with server.\n");
 
 	if (c != NULL)
 		free(c);
