@@ -12,6 +12,8 @@
 #include "session_queue.h"
 #include "file_metadata.h"
 
+#define MAXLEN_FILE_LIST 256
+
 //Global hash value to verify data integrity after transmission
 uint32_t hash_total[LENGTH_BUFFER]; //Number of uint32_t in hash
 uint32_t hash_count = 0;
@@ -101,6 +103,7 @@ int main(int argc, char *argv[]){
 	int sockid = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	char str[MAXLEN];
 	char recieveded[MAXLEN];
+	char filen_list[MAXLEN_FILE_LIST][MAXLEN];
 	char filen[MAXLEN];
 	char buff[MAXLEN];
 	int num_of_files = 0;
@@ -114,22 +117,35 @@ int main(int argc, char *argv[]){
 		strcpy(str, argv[1]);
 	}
 	
-	FILE *fp;
 	//Get file to transfer, assign filen
 	if(argc == 3){
-		strcpy(filen, argv[2]);
+		strcpy(filen_list[0], argv[2]);
 		num_of_files++;
 	}else if(argc < 3){
 		puts("Enter the name of the file to be sent(with full path):");
-		scanf("%s", filen);
-		printf("%s", filen);
+		scanf("%s", filen_list[0]);
+		printf("%s", filen_list[0]);
 		num_of_files++;
 	}
+	else if(argc < 3){
+		if (argc < MAXLEN_FILE_LIST){
+			printf("File count is over limit of %d\n", MAXLEN_FILE_LIST);
+			exit(FTP_FALSE);
+		}
+		for (int i = 2; i < argc; i++){
+			strcpy(filen_list[i-2], argv[i]);
+			num_of_files++;
+		}
+	}
 
-	fp = fopen(filen, "rb");
-	if(fp == NULL){
-		fprintf(stderr, "Could not open file\n");
-		exit(1);
+	FILE **fp = (FILE **)malloc(sizeof(FILE *) * num_of_files);
+
+	for (int i = 0; i < num_of_files; i++){
+		fp[i] = fopen(filen_list[i], "rb");
+		if(fp[i] == NULL){
+			fprintf(stderr, "Could not open file of index: %d\n", i);
+			exit(FTP_FALSE);
+		}
 	}
 
 	//Sets the server address and port
@@ -166,38 +182,39 @@ int main(int argc, char *argv[]){
 		puts("Could not allocate memory for buffer");
 		exit(1);
 	}
+
 	//Sends contents of a file
-	if (fp == NULL){
-		fprintf(stderr, "File was closed. Ending transmission");
-		//send an corrupt signal
-		exit(0);
-	}else if (handshake_error == FTP_FALSE){
+	if (handshake_error == FTP_FALSE){
 		fprintf(stderr, "Could not intialize connection.");
 		exit(0);
 	}
 	puts("Handshake to server success.");
 
-	char *filen_nopath = truncate_file_path(filen);
-	struct metadata *fp_meta;
-	//Pack_File allocates memory, must free later with free_metadata
-	fp_meta = pack_file_data(fp, filen_nopath);
+	struct metadata *fp_meta[MAXLEN_FILE_LIST];
+	//Truncate file paths and build metadata structs
+	for (int i = 0; i < num_of_files; i++){
+		char *filen_nopath = truncate_file_path(filen_list[i]);
+		//Pack_File allocates memory, must free later with free_metadata
+		fp_meta[i] = pack_file_data(fp[i], filen_nopath);
 
-	if (filen_nopath != NULL)
-		free(filen_nopath);
+		if (filen_nopath != NULL)
+			free(filen_nopath);
+	}
 
 	//main loop
 
+	int files_sent = 0;
 	while (num_of_files > 0){
-		send_metadata(sockid, *fp_meta, c, session_mask); 
-		printf("Sent metadata to server for %s\n", fp_meta->name);
+		send_metadata(sockid, *fp_meta[files_sent], c, session_mask); 
+		printf("Sent metadata to server for %s\n", fp_meta[files_sent]->name);
 
-		int flag = send_arr(sockid, fp, c);
+		int flag = send_arr(sockid, fp[files_sent], c);
 	
 		if (flag){
 			fprintf(stdout,"Error: data not sent. %d bits.",flag);
 		}
 
-		fclose(fp);
+		fclose(fp[files_sent]);
 		printf("File sent successfully\n");
 		/* 
 		 * Temporarily disable hashing
@@ -214,6 +231,7 @@ int main(int argc, char *argv[]){
 		}
 		*/
 		--num_of_files;
+		files_sent++;
 	}
 
 	//Inform server that all data is received
@@ -224,9 +242,10 @@ int main(int argc, char *argv[]){
 
 	if (c != NULL)
 		free(c);
-	if (fp_meta != NULL)
-		free_metadata(fp_meta);
-
+	for (int i = 0; i < files_sent; i++){
+		if (fp_meta[i] != NULL)
+			free_metadata(fp_meta[i]);
+	}
 	//close connection
 	int statusc = close(sockid);
 
