@@ -92,7 +92,6 @@ int send_arr(int sockid, FILE *fp, uint32_t *c)
 	*c = END_FLAG;
 	
 	send(sockid, c, PACKET_BYTES, 0);
-	memset(c,0,PACKET_BYTES);
 
 	return endf - ftell(fp);
 }
@@ -191,8 +190,6 @@ int main(int argc, char *argv[]){
 	while (num_of_files > 0){
 		send_metadata(sockid, *fp_meta, c, session_mask); 
 		printf("Sent metadata to server for %s\n", fp_meta->name);
-
-		memset(c,0,(PACKET_BYTES));
 
 		int flag = send_arr(sockid, fp, c);
 	
