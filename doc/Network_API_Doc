@@ -1,0 +1,40 @@
+All main networking functions and definitions can be found in source/networking.h
+
+# Packet Structure
+
+Version Control Packet:
+ ________________________________________________________________
+|      4 Bytes        |     4 Bytes   |     4 Bytes   | 500 Bytes|
+ ----------------------------------------------------------------
+| Session_Start Flag  | Major Version | Minor Version | Reserved |
+ ----------------------------------------------------------------
+
+File Metadata Packet:
+
+ ________________________________________________________________________________
+|      1 Byte   |   1 Byte   | 2 Bytes  |  8 Bytes  |     8 Bytes    | 492 Bytes |
+ --------------------------------------------------------------------------------
+| Metadata Flag | Session ID | Reserved | File size | File name size | File name |
+ --------------------------------------------------------------------------------
+
+
+# Version Control
+The server and client applications will ensure that they are using the same protocol version by checking the STANDARD_VERSION_MAJ and STANDARD_VERSION_MIN values defined in networking.h.
+This process takes place in handshake_server() and handshake_client(), which are respectively in source/server.c and source/client.c
+
+# Flags
+PAYLOAD_FLAG, SIZE_FLAG, EOF_FLAG, and HASH_FLAG are used for the soon to be deprecated encapsulate() function. This function is being removed in favour of simply always reserving the first 4 bytes of a packet for the flag.
+
+The remaining flags are 4 bytes in size, but use only the first 4 bits in case a use for the remaining 28 bits is later needed. 
+
+PAYLOAD is a flag that denotes a packet containing PAYLOAD_BYTES of data, which is defined as the the size of each data (currently a uint32_t) less than PACKET_BYTES, which is currently 128 * the size of uint32_t. 
+
+DIFF_SIZE is a flag used to denote that the following data in the packet is the remainder size of a file that is less than PAYLOAD_BYTES.
+
+END_FLAG denotes that the end of the file has been reached and carries data of the size sent in the DIFF_SIZE packet.
+
+HASH_PAYLOAD is currently unused and being reworked.
+
+SESSION_ID_FLAG is used during the handshake process by the server to assign a session id to the client, and by the client to confirm it will use the correct session_id.
+
+META_FLAG denotes a packet containing 
