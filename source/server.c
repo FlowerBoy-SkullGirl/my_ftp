@@ -215,7 +215,7 @@ int main(int argc, char *argv[])
 				}
 				break;
 			}
-			if (*c == META_FLAG){
+			else if (*c == META_FLAG){
 				fp_meta = pack_metadata_packet(c);
 				//Open file
 				fp = fopen(fp_meta->name, "wb");
@@ -225,16 +225,16 @@ int main(int argc, char *argv[])
 				}
 				printf("Writing file %s\t%d Bytes\n", fp_meta->name, fp_meta->size);
 			}
-			if (*c == PAYLOAD){
+			else if (*c == PAYLOAD){
 				fwrite(c_data, PAYLOAD_BYTES, 1, fp);
 				//hash_uint32(hash_buff, *c, hash_count++);
 			}
-			if (*c == DIFF_SIZE)
+			else if (*c == DIFF_SIZE)
 			{
 				expected_bytes = *(c + 1);
 				printf("Last payload is %d\n", expected_bytes);
 			}
-			if (*c == END_FLAG){
+			else if (*c == END_FLAG){
 				fwrite(c_data, expected_bytes, 1, fp);
 				//New file may be opened before connection closes
 				if (fp_meta != NULL){
