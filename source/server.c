@@ -223,7 +223,7 @@ int main(int argc, char *argv[])
 					fprintf(stderr, "Could not write file");
 					exit(1);
 				}
-				printf("Writing file %s\t%d Bytes\n", fp_meta->name, fp_meta->size);
+				printf("Writing file %s\t%ld Bytes\n", fp_meta->name, fp_meta->size);
 			}
 			else if (*c == PAYLOAD){
 				fwrite(c_data, PAYLOAD_BYTES, 1, fp);
@@ -247,6 +247,9 @@ int main(int argc, char *argv[])
 				}
 				puts("Client sent EOF. File write success");
 				//hash_uint32(hash_buff, *c, hash_count++);
+			}else{
+				printf("Received empty or corrupted packet. Ignoring..\n");
+				continue;
 			}
 			/*
 			 * Hashing disabled for testing
@@ -274,6 +277,10 @@ int main(int argc, char *argv[])
 		if (hash_buff != NULL){
 			free(hash_buff);
 			hash_buff = NULL;
+		}
+		if (fp_meta != NULL){
+			free_metadata(fp_meta);
+			fp_meta = NULL;
 		}
 
 		hash_count = 0;

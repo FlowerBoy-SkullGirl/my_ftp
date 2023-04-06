@@ -17,17 +17,17 @@
 
 
 struct metadata{
-	long size;
-	long name_size;
+	unsigned long size;
+	unsigned long name_size;
 	char *name;
 };
 
-uint32_t first_sig_byte_long(long x)
+uint32_t first_sig_byte_long(unsigned long x)
 {
 	return (uint32_t) ((x & 0xFFFFFFFF00000000) >> sizeof(uint32_t));	
 }
 
-uint32_t last_sig_byte_long(long x)
+uint32_t last_sig_byte_long(unsigned long x)
 {
 	return (uint32_t) (x & 0x00000000FFFFFFFF);	
 }
@@ -99,7 +99,7 @@ int build_metadata_packet(struct metadata data, uint32_t *packet, uint32_t sessi
 	char *packet_string;
 	char *name = data.name;
 
-	if (sizeof(long) == sizeof(uint32_t)){
+	if (sizeof(unsigned long) == sizeof(uint32_t)){
 		*(++packet_contents) = 0;
 		*(++packet_contents) = data.size;
 		*(++packet_contents) = 0;
@@ -112,7 +112,7 @@ int build_metadata_packet(struct metadata data, uint32_t *packet, uint32_t sessi
 		}
 		return PACKET_BYTES;
 	//Most likely case is long as 64 bit integer, which must be broken into 32 bit segments.
-	}else if (sizeof(long) == (2 * sizeof(uint32_t))){
+	}else if (sizeof(unsigned long) == (2 * sizeof(uint32_t))){
 		*(++packet_contents) = first_sig_byte_long(data.size);
 		*(++packet_contents) = last_sig_byte_long(data.size);
 		*(++packet_contents) = first_sig_byte_long(data.name_size);
@@ -135,6 +135,8 @@ int build_metadata_packet(struct metadata data, uint32_t *packet, uint32_t sessi
 struct metadata *pack_metadata_packet(uint32_t *packet)
 {
 	struct metadata *file_data = (struct metadata *) malloc(sizeof(struct metadata));
+	file_data->size = 0;
+	file_data->name_size = 0;
 	//cast uint memory as char *
 	char *filen =(char *) (packet + OFFSET_FILE_NAME);
 

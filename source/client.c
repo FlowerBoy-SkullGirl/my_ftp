@@ -76,16 +76,18 @@ int send_arr(int sockid, FILE *fp, uint32_t *c)
 	//used to avoid (c+1) being reused everywhere
 	uint32_t *c_data = c+1;
 
+	printf("Sending main payload\n");
 	for (uint32_t i = ftell(fp); i < (endf - (PAYLOAD_BYTES)); i = ftell(fp)){
 		fread(c_data, PAYLOAD_SIZE, (PAYLOAD_ARR_SIZE-1), fp);
-		*c = encapsulate(PAYLOAD_FLAG, *c);
+		*c = PAYLOAD;
 		send(sockid, c, PACKET_BYTES, 0);
 	}
 
 	*c = EMPTY_DATA;
 	*c_data = EMPTY_DATA;
-	*c = encapsulate(SIZE_FLAG, *c);
+	*c = DIFF_SIZE;
 	*c_data = endf - ftell(fp);
+	printf("Sending remainder size %d\n", *c_data);
 
 	send(sockid, c, PACKET_BYTES, 0);
 	memset(c,0,PACKET_BYTES);
@@ -93,6 +95,7 @@ int send_arr(int sockid, FILE *fp, uint32_t *c)
 	fread(c_data, 1, (endf - ftell(fp)), fp);
 	*c = END_FLAG;
 	
+	printf("Sending EOF\n");
 	send(sockid, c, PACKET_BYTES, 0);
 
 	return endf - ftell(fp);
@@ -127,8 +130,8 @@ int main(int argc, char *argv[]){
 		printf("%s", filen_list[0]);
 		num_of_files++;
 	}
-	else if(argc < 3){
-		if (argc < MAXLEN_FILE_LIST){
+	else if(argc > 3){
+		if (argc > MAXLEN_FILE_LIST){
 			printf("File count is over limit of %d\n", MAXLEN_FILE_LIST);
 			exit(FTP_FALSE);
 		}
@@ -196,6 +199,7 @@ int main(int argc, char *argv[]){
 		char *filen_nopath = truncate_file_path(filen_list[i]);
 		//Pack_File allocates memory, must free later with free_metadata
 		fp_meta[i] = pack_file_data(fp[i], filen_nopath);
+		printf("Preparing metadata of file %s of size %d bytes\n", fp_meta[i]->name, fp_meta[i]->size);
 
 		if (filen_nopath != NULL)
 			free(filen_nopath);
