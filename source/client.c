@@ -13,6 +13,7 @@
 #include "file_metadata.h"
 
 #define MAXLEN_FILE_LIST 256
+#define MAX_RETRY_CONNECT 20
 
 //Global hash value to verify data integrity after transmission
 uint32_t hash_total[LENGTH_BUFFER]; //Number of uint32_t in hash
@@ -159,9 +160,16 @@ int main(int argc, char *argv[]){
 	
 	printf("Connecting to %s\n", str);
 
-	//Try connect to server
-	int status = connect(sockid, (struct sockaddr *) &addrserv, sizeof(addrserv));
-	
+	//Try connect to server. Returns 0 on success
+	//To enforce max number of retries, add && num_retries <= MAX_RETRY_CONNECT
+	int status = 1;
+	while (status){
+		status = connect(sockid, (struct sockaddr *) &addrserv, sizeof(addrserv));
+		if (status){
+			printf("Failed to connect. Retrying every 5 seconds.\n");
+			sleep(5);
+		}
+	}
 
 	//Init and end session codes
 	char sended[MAXLEN] = "Hello, server\n";
