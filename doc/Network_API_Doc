@@ -9,6 +9,13 @@ Version Control Packet:
 | Session_Start Flag  | Major Version | Minor Version | Reserved |
  ----------------------------------------------------------------
 
+Session ID Packet:
+ ___________________________________
+|      4 Bytes      |   4 Bytes     |
+ -----------------------------------
+|  Session ID Flag  |   Session Id  |
+ -----------------------------------
+
 File Metadata Packet:
 
  ________________________________________________________________________________
@@ -16,6 +23,20 @@ File Metadata Packet:
  --------------------------------------------------------------------------------
 | Metadata Flag | Session ID | Reserved | File size | File name size | File name |
  --------------------------------------------------------------------------------
+
+Error Hangup Packet:
+ ___________________________________
+|      4 Bytes      |   4 Bytes     |
+ -----------------------------------
+| Session End Flag  | Error Message |
+ -----------------------------------
+
+Payload Packet:
+ ___________________________________
+|      4 Bytes      |   508 Bytes   |
+ -----------------------------------
+| Payload Type Flag |      Data     |
+ -----------------------------------
 
 
 # Version Control
@@ -37,4 +58,35 @@ HASH_PAYLOAD is currently unused and being reworked.
 
 SESSION_ID_FLAG is used during the handshake process by the server to assign a session id to the client, and by the client to confirm it will use the correct session_id.
 
-META_FLAG denotes a packet containing 
+META_FLAG denotes a packet containing metadata for a file to be transferred. This packet can be built using the build_metadata_packet() function from source/file_metadata.h. The server uses this data to reconstruct its own copy of the metadata struct that the client has built.
+
+END_SESSION
+Is used to denote the end of the session between the client and the server before the socket is closed. This can be sent as either the result of an error or when the client has run out of files to send. 
+
+RETRY_FLAG
+Is planned to be used after an error to recover after a failed file transfer.
+
+SESSION_START
+Is a flag used in the handshake version control packet to initiate the negotiation of a session_id.
+
+CORRUPTED_FLAG
+Planned flag for future use to denote a corrupted file transfer.
+
+# Structs
+
+ftp_sock
+The ftp_sock struct is used by the server to manage cli arguments that influence the socket.
+A short is used for the port number.
+An int is used to keep track of the maximum allowed number of waiting connections.
+
+metadata
+The metadata struct keeps track of file information so that it can be easily serialized and transmitted between the client and server.
+Unsigned longs are used for the file size in bytes as reported by ftell() and the file name size in bytes as reported by strlen().
+There is a char * to store the file name, which has memory allocated in the pack_file_data() function.
+
+queue
+The queue keeps track of different sessions connected to the server.
+session_id is a char value that is chosen by the append_queue() function by querying get_avaiable_id() passed with the id_list.
+socket is an int that matches the sockid associated with the connection.
+queue *next points to the next session in the queue.
+
