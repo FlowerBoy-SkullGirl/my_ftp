@@ -8,10 +8,61 @@
 #include "networking.h"
 #include "file_metadata.h"
 #include "session_queue.h"
+#include <unistd.h>
+#include <pthread.h>
 //#include "server.c"
 
 #define HEIGHT 10
 #define WIDTH 10
+#define MAXLEN_GUI 256
+#define START_OPTION 0
+#define PORT_OPTION 1
+#define CONNECTIONS_OPTION 2
+#define EXIT_OPTION 3
+
+void *init_server(void *args)
+{
+	struct ftp_sock sock_args = *((struct ftp_sock *) args);
+	char port_str[MAXLEN_GUI];
+	snprintf(port_str, MAXLEN_GUI, "%d", sock_args.port);
+	char connections_str[MAXLEN_GUI];
+	snprintf(connections_str, MAXLEN_GUI, "%d", sock_args.max_pending_connections);
+	char *argse[] = {"./serv","-p",port_str,"-c",connections_str};
+	execv(argse[0],argse);
+}
+
+void build_menu(WINDOW *menu_window, int highlighted_row, char **menu_strings, int num_menu_options, int y, int x, struct ftp_sock sock_args)
+{
+	for (int i = 0; i <= num_menu_options; i++){
+		if (i == highlighted_row)
+			wattron(menu_window, A_REVERSE);
+
+		switch (i){
+			case PORT_OPTION:
+				mvwprintw(menu_window, y + i, x, menu_strings[i], sock_args.port);
+				break;
+			case CONNECTIONS_OPTION:
+				mvwprintw(menu_window, y + i, x, menu_strings[i], sock_args.max_pending_connections);
+				break;
+			default:
+				mvwprintw(menu_window, y + i, x, menu_strings[i]);
+				break;
+		}
+		if (i == highlighted_row)
+			wattroff(menu_window, A_REVERSE);
+	}
+
+}
+
+void get_port_window()
+{
+
+}
+
+void get_connections_window()
+{
+
+}
 
 int main()
 {
@@ -19,8 +70,11 @@ int main()
 	int row, col;
 	int x = 0;
 	int y = 0;
-	short port = 4414;
-	int max_waiting = 5;
+	struct ftp_sock sock_args;
+	sock_args.port = 4414;
+	sock_args.max_pending_connections = 5;
+
+	pthread_t server_thread;
 
 	initscr();
 	refresh();
@@ -37,36 +91,14 @@ int main()
 	int highlighted_row = 0;
 	int key_in;
 	int num_menu_options = 3;
+	char *menu_strings[MAXLEN_GUI] = {
+		"Start Server",
+		"Port Number(%d)",
+		"Max Connections(%d)",
+		"Exit"
+	};
 	while (!exit){
-		if (highlighted_row = 0){
-			wattron(start_menu, A_REVERSE);
-			mvwprintw(start_menu, HEIGHT, WIDTH, "Start server");  
-			wattroff(start_menu, A_REVERSE);
-		}else{
-			mvwprintw(start_menu, HEIGHT, WIDTH, "Start server");  
-		}
-		if (highlighted_row = 1){
-			wattron(start_menu, A_REVERSE);
-			mvwprintw(start_menu, HEIGHT + 1, WIDTH, "Port Number(%d)", port);
-			wattroff(start_menu, A_REVERSE);
-		}else{
-			mvwprintw(start_menu, HEIGHT + 1, WIDTH, "Port Number(%d)", port);
-		}
-		if (highlighted_row = 2){
-			wattron(start_menu, A_REVERSE);
-			mvwprintw(start_menu, HEIGHT + 2, WIDTH, "Max Connections(%d)", max_waiting);
-			wattroff(start_menu, A_REVERSE);
-		}else{
-			mvwprintw(start_menu, HEIGHT + 2, WIDTH, "Max Connections(%d)", max_waiting);
-		}
-		if (highlighted_row = 3){
-			wattron(start_menu, A_REVERSE);
-			mvwprintw(start_menu, HEIGHT + 3, WIDTH, "Exit.");
-			wattroff(start_menu, A_REVERSE);
-		}else{
-			mvwprintw(start_menu, HEIGHT + 3, WIDTH, "Exit.");
-		}
-
+		build_menu(start_menu, highlighted_row, menu_strings, num_menu_options, HEIGHT, WIDTH, sock_args);
 		wrefresh(start_menu);
 
 		key_in = getch();
@@ -81,9 +113,18 @@ int main()
 				if (highlighted_row < 0)
 					highlighted_row = num_menu_options;
 				break;
-			case '\r':
+			case '\n':
 				switch (highlighted_row){
-					case 3:
+					case START_OPTION:
+						pthread_create(&server_thread, NULL, init_server, (void *)&sock_args);
+						break;
+					case PORT_OPTION:
+						get_port_window();
+						break;
+					case CONNECTIONS_OPTION:
+						get_connections_window();
+						break;
+					case EXIT_OPTION:
 						exit = 1;
 						break;
 					default:
