@@ -105,7 +105,7 @@ int send_arr(int sockid, FILE *fp, uint32_t *c)
 int main(int argc, char *argv[]){
 	struct sockaddr_in addrserv;
 	int sockid = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
-	char str[MAXLEN];
+	char server_ip[MAXLEN];
 	char recieveded[MAXLEN];
 	char filen_list[MAXLEN_FILE_LIST][MAXLEN];
 	char filen[MAXLEN];
@@ -115,10 +115,9 @@ int main(int argc, char *argv[]){
 	//Get ip, assign to str
 	if(argc < 2){
 		puts("Enter the ipv4 address of the server:");
-		scanf("%s", str);
-		printf("%s", str);
+		scanf("%s", server_ip);
 	}else{
-		strcpy(str, argv[1]);
+		strcpy(server_ip, argv[1]);
 	}
 	
 	//Get file to transfer, assign filen
@@ -128,7 +127,6 @@ int main(int argc, char *argv[]){
 	}else if(argc < 3){
 		puts("Enter the name of the file to be sent(with full path):");
 		scanf("%s", filen_list[0]);
-		printf("%s", filen_list[0]);
 		num_of_files++;
 	}
 	else if(argc > 3){
@@ -156,9 +154,9 @@ int main(int argc, char *argv[]){
 	memset(&addrserv, 0, sizeof(addrserv));		
 	addrserv.sin_family = AF_INET;
 	addrserv.sin_port = htons(4414);
-	addrserv.sin_addr.s_addr = inet_addr(str);
+	addrserv.sin_addr.s_addr = inet_addr(server_ip);
 	
-	printf("Connecting to %s\n", str);
+	printf("Connecting to %s\n", server_ip);
 
 	//Try connect to server. Returns 0 on success
 	//To enforce max number of retries, add && num_retries <= MAX_RETRY_CONNECT
