@@ -38,7 +38,5 @@ List of functions that need to be implemented:
 
 Possible implementation details:
 -Concurrency
-    -Use pthread to create a file writing thread after a first data is recv'd from the client
-    -Receive the next data while writing the old data
-    -Join the threads before writing to the file again to avoid concurrent overwrites to the same file pointer
-    TEST whether this will improve speed of program or not
+    -Use pthreads to manage simultaneous connections
+    -Perhaps use threading to manage a GUI through another socket
