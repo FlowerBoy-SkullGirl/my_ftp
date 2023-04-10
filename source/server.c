@@ -22,7 +22,7 @@
 uint32_t hash_count = 0;
 int hashes = 0;
 
-int handshake_server(int s, uint32_t *buffer, struct queue *qp, int *session_id_list)
+int handshake_server(int s, uint32_t *buffer, struct queue *qp, int *session_id_list, FILE *print_fd)
 {
 	int offset_major_byte = 1;
 	int offset_minor_byte = 2;
@@ -41,7 +41,7 @@ int handshake_server(int s, uint32_t *buffer, struct queue *qp, int *session_id_
 	struct queue *current_session = NULL;
 	current_session = append_queue(qp, session_id_list, s);
 
-	printf("Assigned session id to client\n");
+	fprintf(print_fd, "Assigned session id to client\n");
 
 	//Begin packet building
 	memset(buffer,0,PACKET_BYTES);
@@ -59,6 +59,7 @@ int handshake_server(int s, uint32_t *buffer, struct queue *qp, int *session_id_
 	return FTP_TRUE;
 }
 
+/*
 //Compares hash from client to local hash, returns 1 on success
 int compare_hash(uint32_t *hash_buff, uint32_t *c)
 {
@@ -66,7 +67,7 @@ int compare_hash(uint32_t *hash_buff, uint32_t *c)
 	if (hash_buff[hashes] > REMOVE_FLAG)
 		hash_buff[hashes] = hash_buff[hashes] & REMOVE_FLAG;
 	//DEBUGGING
-	fprintf(stdout, "Hashes: %x, %x\n", hash_buff[hashes], *c);
+	fprintf(print_fd, "Hashes: %x, %x\n", hash_buff[hashes], *c);
 	if (hash_buff[hashes] == *c){
 		hashes++;
 		return 1;
@@ -75,9 +76,10 @@ int compare_hash(uint32_t *hash_buff, uint32_t *c)
 		return 0;
 	}
 }
+*/
 
 //Takes argv and an index to parse cli arguments, convert them to int, and set the appropriate values in the socket struct
-int set_cli_parameter(char **arg, int i, struct ftp_sock *sock_params, FILE *print_fd)
+int set_cli_parameter(char **arg, int i, struct ftp_sock *sock_params, FILE **print_fd)
 {
 	int port = DEFAULT_PORT;
 	int pending = DEFAULT_PENDING;
@@ -94,7 +96,6 @@ int set_cli_parameter(char **arg, int i, struct ftp_sock *sock_params, FILE *pri
 				return POORLY_FORMED_ARGUMENT;
 			}
 			sock_params->port = port;
-			printf("Port set to %d...\n", sock_params->port);
 			return SUCCESS;
 		case 'c':
 			if (pending = atoi(arg[i+1]) == 0){
@@ -103,16 +104,17 @@ int set_cli_parameter(char **arg, int i, struct ftp_sock *sock_params, FILE *pri
 			sock_params->max_pending_connections = pending;
 			return SUCCESS;
 		case 'h':
-			printf("Allowed arguments:\n-p [Number]\n\tSpecify a port number.\n-c [Number]\n\tSpecify the number of maximum waiting connections on the socket.\n-h\n\tDisplay this message.\n");
+			fprintf(stdout, "Allowed arguments:\n-p [Number]\n\tSpecify a port number.\n-c [Number]\n\tSpecify the number of maximum waiting connections on the socket.\n-h\n\tDisplay this message.\n");
 			exit(0);
 		case 'q':
-			FILE *log = fopen(logfilen, "a");
-			if (log == NULL){
+			*print_fd = fopen(logfilen, "a");
+			if (print_fd == NULL){
 				fprintf(stderr, "Could not open log file\n");
 				exit(0);
 			}
-			print_fd = log;
-			fprintf(printfd, "Outputting to log file: %s", logfilen);
+			fprintf(*print_fd, "Outputting to log file: %s\n", logfilen);
+			return SUCCESS;
+			break;
 		default:
 			return POORLY_FORMED_ARGUMENT;
 	}
@@ -130,11 +132,11 @@ int main(int argc, char *argv[])
 	ftp_sock_parameters->port = DEFAULT_PORT;
 	ftp_sock_parameters->max_pending_connections = DEFAULT_PENDING;
 
-	FILE *print_fd = stdout;
+	FILE *print_fd = NULL;
 
 	if (argc > 1){
 		for(int i = 1; i < argc; i+=2){
-			invalid_command = set_cli_parameter(argv,i,ftp_sock_parameters, print_fd);
+			invalid_command = set_cli_parameter(argv,i,ftp_sock_parameters, &print_fd);
 			if(invalid_command){
 				fprintf(stderr,"Invalid command line argument, pass -h for help");
 				exit(COMMAND_ERROR);
@@ -144,6 +146,14 @@ int main(int argc, char *argv[])
 		//PLANNED to allow a user to enter values that would have been passed as cli arguments
 		//input_socket_parameters(ftp_sock_parameters);
 	}
+
+	//If print_fd was not set to quiet in cli arguments
+	if (print_fd == NULL){
+		puts("Printing to stdout...");
+		print_fd = stdout;
+	}
+
+	fprintf(print_fd, "Port set to %d...\n", ftp_sock_parameters->port);
 
 	//Setup socket and ip address structs
 	addrport.sin_family = AF_INET;
@@ -156,13 +166,13 @@ int main(int argc, char *argv[])
 	addrcli.sin_port = htons(INADDR_ANY);
 	addrcli.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	puts("Socket created..");
+	fprintf(print_fd, "Socket created..\n");
 
 	if (bind(sockid,(struct sockaddr *) &addrport,sizeof(addrport)) == FAIL_BIND_SOCKET){
 		fprintf(stderr,"Could not bind socket");
 		exit(FAIL_BIND_SOCKET);
 	}
-	puts("Socket bound..");
+	fprintf(print_fd, "Socket bound..\n");
 	
 	FILE *fp;
 
@@ -184,15 +194,15 @@ int main(int argc, char *argv[])
 
 		socklen_t clilen = sizeof(addrcli);		
 		s = accept(sockid, (struct sockaddr *) &addrcli, &clilen);
-		puts("Connection established..");
+		fprintf(print_fd, "Connection established..\n");
 		
 		//Get init signal
-		if(handshake_server(s, c, qp, session_id_list) != FTP_TRUE){
-			fprintf(stdout, "Could not pass handshake with client.\n");
+		if(handshake_server(s, c, qp, session_id_list, print_fd) != FTP_TRUE){
+			fprintf(print_fd, "Could not pass handshake with client.\n");
 			//Write a retry loop
 			continue;
 		}
-		fprintf(stdout, "Passed handshake with client.\n");
+		fprintf(print_fd, "Passed handshake with client.\n");
 
 		//Take return of incoming_data() and process accordingly
 		uint32_t size_message = 1;
@@ -210,11 +220,11 @@ int main(int argc, char *argv[])
 		uint32_t expected_bytes = PACKET_BYTES;
 		while (size_message = read_buffer(s, c, PACKET_BYTES)){
 			if (size_message == CORRUPTED_FLAG){
-				printf("Received empty or corrupted packet. Ignoring..\n");
+				fprintf(print_fd, "Received empty or corrupted packet. Ignoring..\n");
 				continue;
 			}
 			if (*c == END_SESSION){
-				printf("Session ended by client.\n");
+				fprintf(print_fd, "Session ended by client.\n");
 
 				//Do queue management here
 				//return_id(session_id_list, 0);
@@ -234,7 +244,7 @@ int main(int argc, char *argv[])
 					fprintf(stderr, "Could not write file");
 					exit(1);
 				}
-				printf("Writing file %s\t%ld Bytes\n", fp_meta->name, fp_meta->size);
+				fprintf(print_fd, "Writing file %s\t%ld Bytes\n", fp_meta->name, fp_meta->size);
 			}
 			else if (*c == PAYLOAD){
 				fwrite(c_data, PAYLOAD_BYTES, 1, fp);
@@ -243,7 +253,7 @@ int main(int argc, char *argv[])
 			else if (*c == DIFF_SIZE)
 			{
 				expected_bytes = *(c + 1);
-				printf("Last payload is %d\n", expected_bytes);
+				fprintf(print_fd, "Last payload is %d\n", expected_bytes);
 			}
 			else if (*c == END_FLAG){
 				fwrite(c_data, expected_bytes, 1, fp);
@@ -256,19 +266,19 @@ int main(int argc, char *argv[])
 					fclose(fp);
 					fp = NULL;
 				}
-				puts("Client sent EOF. File write success");
+				fprintf(print_fd, "Client sent EOF. File write success\n");
 				//hash_uint32(hash_buff, *c, hash_count++);
 			}else{
-				printf("Received empty or corrupted packet. Ignoring..\n");
+				fprintf(print_fd, "Received empty or corrupted packet. Ignoring..\n");
 				continue;
 			}
 			/*
 			 * Hashing disabled for testing
 			if (size_message == HASH_PAYLOAD){
 				if (!compare_hash(hash_buff, c)){
-					fprintf(stdout, "File corruption detected. File hash mismatch. Please retry transfer. %x\n", hash_buff[hashes - 1]);
+					fprintf(print_fd, "File corruption detected. File hash mismatch. Please retry transfer. %x\n", hash_buff[hashes - 1]);
 				}else{
-					fprintf(stdout, "Matching file hash success: %x\n", hash_buff[hashes - 1]);
+					fprintf(print_fd, "Matching file hash success: %x\n", hash_buff[hashes - 1]);
 				}
 			}
 			*/
@@ -293,6 +303,9 @@ int main(int argc, char *argv[])
 			free_metadata(fp_meta);
 			fp_meta = NULL;
 		}
+
+		//make sure log is written to disk
+		fsync(fileno(print_fd));
 
 		hash_count = 0;
 		hashes = 0;
