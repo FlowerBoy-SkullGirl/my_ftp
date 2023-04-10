@@ -135,7 +135,7 @@ int main(int argc, char *argv[])
 	FILE *print_fd = NULL;
 
 	if (argc > 1){
-		for(int i = 1; i < argc; i+=2){
+		for(int i = 1; i < argc; i++){
 			invalid_command = set_cli_parameter(argv,i,ftp_sock_parameters, &print_fd);
 			if(invalid_command){
 				fprintf(stderr,"Invalid command line argument, pass -h for help");

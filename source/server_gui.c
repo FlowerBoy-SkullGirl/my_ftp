@@ -27,7 +27,7 @@ void *init_server(void *args)
 	snprintf(port_str, MAXLEN_GUI, "%d", sock_args.port);
 	char connections_str[MAXLEN_GUI];
 	snprintf(connections_str, MAXLEN_GUI, "%d", sock_args.max_pending_connections);
-	char *argse[] = {"./serv","-q","-p",port_str,"-c",connections_str};
+	char *argse[] = {"./serv","-p",port_str,"-c",connections_str,"-q"};
 	execv(argse[0],argse);
 }
 
@@ -74,7 +74,7 @@ int get_port_window()
 	noecho();
 	
 	if (strcmp(port_in, "\n") == 0)
-		return DEFTAULT_PORT;
+		return DEFAULT_PORT;
 	else
 		return atoi(port_in);
 }
@@ -100,7 +100,7 @@ int get_connections_window()
 	delwin(conn_menu);
 
 	if (strcmp(conn_in, "\n") == 0)
-		return DEFAULT_WAITING;
+		return DEFAULT_PENDING;
 	else
 		return atoi(conn_in);
 }
@@ -130,7 +130,7 @@ int main()
 	int y = 0;
 	struct ftp_sock sock_args;
 	sock_args.port = DEFAULT_PORT;
-	sock_args.max_pending_connections = DEFTAULT_WAITING;
+	sock_args.max_pending_connections = DEFAULT_PENDING;
 
 	pthread_t server_thread;
 
