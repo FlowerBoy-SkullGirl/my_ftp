@@ -27,7 +27,7 @@ void *init_server(void *args)
 	snprintf(port_str, MAXLEN_GUI, "%d", sock_args.port);
 	char connections_str[MAXLEN_GUI];
 	snprintf(connections_str, MAXLEN_GUI, "%d", sock_args.max_pending_connections);
-	char *argse[] = {"./serv","-p",port_str,"-c",connections_str};
+	char *argse[] = {"./serv","-q","-p",port_str,"-c",connections_str};
 	execv(argse[0],argse);
 }
 
