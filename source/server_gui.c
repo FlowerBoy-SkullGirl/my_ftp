@@ -54,14 +54,72 @@ void build_menu(WINDOW *menu_window, int highlighted_row, char **menu_strings, i
 
 }
 
-void get_port_window()
+int get_port_window()
 {
-
+	int row, col;
+	int x = 0;
+	int y = 0;
+	char port_in[MAXLEN_GUI];
+	getmaxyx(stdscr, row, col);
+	WINDOW *port_menu = newwin(row, col, y, x);
+	clear();
+	echo();
+	
+	mvwprintw(port_menu, HEIGHT, WIDTH, "Enter desired port:");
+	refresh();
+	wrefresh(port_menu);
+	getstr(port_in);
+	delwin(port_menu);
+	
+	noecho();
+	
+	if (strcmp(port_in, "\n") == 0)
+		return DEFTAULT_PORT;
+	else
+		return atoi(port_in);
 }
 
-void get_connections_window()
+int get_connections_window()
 {
+	int row, col;
+	int x = 0;
+	int y = 0;
+	char conn_in[MAXLEN_GUI];
+	getmaxyx(stdscr, row, col);
+	WINDOW *conn_menu = newwin(row, col, y, x);
+	
+	clear();
+	echo();
+	mvwprintw(conn_menu, y, x, "Enter desired number of maximum connections:");
 
+	refresh();
+	wrefresh(conn_menu);
+
+	getstr(conn_in);
+	noecho();
+	delwin(conn_menu);
+
+	if (strcmp(conn_in, "\n") == 0)
+		return DEFAULT_WAITING;
+	else
+		return atoi(conn_in);
+}
+
+void get_main_window()
+{
+	int row, col;
+	int x = 0;
+	int y = 0;
+	getmaxyx(stdscr, row, col);
+	WINDOW *main_menu = newwin(row, col, y, x);
+	
+	clear();
+	mvwprintw(main_menu, y, x, "Server is started");
+	mvwprintw(main_menu, y + 1, x, "Exit.");
+	refresh();
+	wrefresh(main_menu);
+	getch();
+	delwin(main_menu);
 }
 
 int main()
@@ -71,8 +129,8 @@ int main()
 	int x = 0;
 	int y = 0;
 	struct ftp_sock sock_args;
-	sock_args.port = 4414;
-	sock_args.max_pending_connections = 5;
+	sock_args.port = DEFAULT_PORT;
+	sock_args.max_pending_connections = DEFTAULT_WAITING;
 
 	pthread_t server_thread;
 
@@ -98,7 +156,9 @@ int main()
 		"Exit"
 	};
 	while (!exit){
+		clear();
 		build_menu(start_menu, highlighted_row, menu_strings, num_menu_options, HEIGHT, WIDTH, sock_args);
+		refresh();
 		wrefresh(start_menu);
 
 		key_in = getch();
@@ -117,12 +177,13 @@ int main()
 				switch (highlighted_row){
 					case START_OPTION:
 						pthread_create(&server_thread, NULL, init_server, (void *)&sock_args);
+						get_main_window();
 						break;
 					case PORT_OPTION:
-						get_port_window();
+						sock_args.port = get_port_window();
 						break;
 					case CONNECTIONS_OPTION:
-						get_connections_window();
+						sock_args.max_pending_connections = get_connections_window();
 						break;
 					case EXIT_OPTION:
 						exit = 1;

@@ -77,10 +77,11 @@ int compare_hash(uint32_t *hash_buff, uint32_t *c)
 }
 
 //Takes argv and an index to parse cli arguments, convert them to int, and set the appropriate values in the socket struct
-int set_cli_parameter(char **arg, int i, struct ftp_sock *sock_params)
+int set_cli_parameter(char **arg, int i, struct ftp_sock *sock_params, FILE *print_fd)
 {
 	int port = DEFAULT_PORT;
 	int pending = DEFAULT_PENDING;
+	char *logfilen = "serverlog";
 	if (strlen(arg[i]) > 2){
 		return ARG_TOO_SMALL;
 	}
@@ -104,6 +105,14 @@ int set_cli_parameter(char **arg, int i, struct ftp_sock *sock_params)
 		case 'h':
 			printf("Allowed arguments:\n-p [Number]\n\tSpecify a port number.\n-c [Number]\n\tSpecify the number of maximum waiting connections on the socket.\n-h\n\tDisplay this message.\n");
 			exit(0);
+		case 'q':
+			FILE *log = fopen(logfilen, "a");
+			if (log == NULL){
+				fprintf(stderr, "Could not open log file\n");
+				exit(0);
+			}
+			print_fd = log;
+			fprintf(printfd, "Outputting to log file: %s", logfilen);
 		default:
 			return POORLY_FORMED_ARGUMENT;
 	}
@@ -121,9 +130,11 @@ int main(int argc, char *argv[])
 	ftp_sock_parameters->port = DEFAULT_PORT;
 	ftp_sock_parameters->max_pending_connections = DEFAULT_PENDING;
 
+	FILE *print_fd = stdout;
+
 	if (argc > 1){
 		for(int i = 1; i < argc; i+=2){
-			invalid_command = set_cli_parameter(argv,i,ftp_sock_parameters);
+			invalid_command = set_cli_parameter(argv,i,ftp_sock_parameters, print_fd);
 			if(invalid_command){
 				fprintf(stderr,"Invalid command line argument, pass -h for help");
 				exit(COMMAND_ERROR);
@@ -290,6 +301,11 @@ int main(int argc, char *argv[])
 	if (session_id_list != NULL){
 		free(session_id_list);
 		session_id_list = NULL;
+	}
+
+	if (print_fd != stdout && print_fd != NULL){
+		fclose(print_fd);
+		print_fd = NULL;
 	}
 	
 	int statusc = close(sockid);
