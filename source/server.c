@@ -84,7 +84,7 @@ int set_cli_parameter(char **arg, int i, struct ftp_sock *sock_params, FILE **pr
 	int port = DEFAULT_PORT;
 	int pending = DEFAULT_PENDING;
 	char *logfilen = "serverlog";
-	if (strlen(arg[i]) > 2){
+	if (strlen(arg[i]) < 2){
 		return ARG_TOO_SMALL;
 	}
 	if (arg[i][0] != '-'){
@@ -136,6 +136,9 @@ int main(int argc, char *argv[])
 
 	if (argc > 1){
 		for(int i = 1; i < argc; i++){
+			//If i'th arg is a value and not a flag
+			if (argv[i][0] != '-')
+				continue;
 			invalid_command = set_cli_parameter(argv,i,ftp_sock_parameters, &print_fd);
 			if(invalid_command){
 				fprintf(stderr,"Invalid command line argument, pass -h for help");
@@ -305,7 +308,7 @@ int main(int argc, char *argv[])
 		}
 
 		//make sure log is written to disk
-		fsync(fileno(print_fd));
+		fflush(print_fd);
 
 		hash_count = 0;
 		hashes = 0;
