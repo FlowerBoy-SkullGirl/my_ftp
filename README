@@ -5,6 +5,7 @@ The protocol is not encrypted, so send files with caution. Sensitive data is bet
 Server: requires no command line arguments to use default port 4414
 	Port can be specified with -p [number]
 	Number of waiting connections can be specified with -c [number]
+	Can be run in quiet mode with -q which writes output to "serverlog"
 	-h for Help message
 Client: command [server-ipv4] /path/to/file [/path/to/more/files] ....
 	pathname will not be preserved once sent over network

@@ -1,15 +1,18 @@
 Gui communicates over sockets
 Ncurses
 
+-Done
+*Needs work
+
 Main start screen
-	Options for port
-	Option for waiting clients max number
-	Start server button
+-	Options for port
+-	Option for waiting clients max number
+-	Start server button
 
 Server operation screen
-	Option to exit
-	Display number current of connections
-	Display files currently being transferred
-	Display file progress based on metadata size
+*	Option to exit
+*	Display number current of connections
+*	Display files currently being transferred
+*	Display file progress based on metadata size
 
 
