@@ -38,6 +38,13 @@ Payload Packet:
 | Payload Type Flag |      Data     |
  -----------------------------------
 
+Hash Packet:
+ ______________________________________________________
+|  4 Bytes  |     4 Bytes      |  65 Bytes | 439 Bytes |
+ ------------------------------------------------------
+| Hash Flag |  Hash str length |  Hash str |  Reserved |
+ ------------------------------------------------------
+
 
 # Version Control
 The server and client applications will ensure that they are using the same protocol version by checking the STANDARD_VERSION_MAJ and STANDARD_VERSION_MIN values defined in networking.h.
@@ -68,6 +75,9 @@ Is planned to be used after an error to recover after a failed file transfer.
 
 SESSION_START
 Is a flag used in the handshake version control packet to initiate the negotiation of a session_id.
+
+NEXT_FLAG
+Is a flag that signals that the client has additional files to be sent. The server then prepares the memory needed for the file pointer and metadata struct.
 
 CORRUPTED_FLAG
 Planned flag for future use to denote a corrupted file transfer.

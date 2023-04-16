@@ -15,10 +15,6 @@
 #define MAXLEN_FILE_LIST 256
 #define MAX_RETRY_CONNECT 20
 
-//Global hash value to verify data integrity after transmission
-uint32_t hash_total[LENGTH_BUFFER]; //Number of uint32_t in hash
-uint32_t hash_count = 0;
-	
 //Struct of inet_addr for reference
 /*	unsigned int inet_addr(char *str){
 		int a, b, c, d;
@@ -94,7 +90,7 @@ int send_arr(int sockid, FILE *fp, uint32_t *c)
 	memset(c,0,PACKET_BYTES);
 
 	fread(c_data, 1, (endf - ftell(fp)), fp);
-	*c = END_FLAG;
+	*c = EOF_FLAG;
 	
 	printf("Sending EOF\n");
 	send(sockid, c, PACKET_BYTES, 0);
@@ -224,24 +220,32 @@ int main(int argc, char *argv[]){
 			fprintf(stdout,"Error: data not sent. %d bits.",flag);
 		}
 
+		//Send server the hash of the file
+		fprintf(stdout, "Sending hash to server.\n");
+
+		//Hash_file malloc's memory for the string
+		char *file_hash = hash_file(fp[files_sent]);
+		memset(c, 0, PACKET_BYTES);
+
+		build_hash_packet(file_hash, c, session_mask); 
+		send(sockid, c, PACKET_BYTES, 0);
+
+		//Free the hash string that is no longer needed
+		if (file_hash != NULL){
+			free(file_hash);
+			file_hash = NULL;
+		}
+
 		fclose(fp[files_sent]);
 		printf("File sent successfully\n");
-		/* 
-		 * Temporarily disable hashing
-		 *
-		//Send server the hash of the file
-		fprintf(stdout, "Sending hash to server: ");
-		for (int i = 0; i < LENGTH_BUFFER; i++){
-			if (hash_total[i] > REMOVE_FLAG)
-				hash_total[i] = hash_total[i] & REMOVE_FLAG;
-			hash_total[i] = encapsulate(HASH_FLAG, hash_total[i]);
-			hash_total[i] = htonl(hash_total[i]);
-			send(sockid, hash_total + i, sizeof(uint32_t), 0);
-			fprintf(stdout, "%x", hash_total[i]);
-		}
-		*/
+
 		--num_of_files;
 		files_sent++;
+		//Indicate that an additional file will be sent
+		if (num_of_files > 0){
+			*c = NEXT_FLAG;
+			send(sockid, c, PACKET_BYTES, 0);
+		}
 	}
 
 	//Inform server that all data is received

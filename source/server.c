@@ -251,15 +251,45 @@ int main(int argc, char *argv[])
 			}
 			else if (*c == PAYLOAD){
 				fwrite(c_data, PAYLOAD_BYTES, 1, fp);
-				//hash_uint32(hash_buff, *c, hash_count++);
 			}
 			else if (*c == DIFF_SIZE)
 			{
 				expected_bytes = *(c + 1);
 				fprintf(print_fd, "Last payload is %d\n", expected_bytes);
 			}
-			else if (*c == END_FLAG){
+			else if (*c == EOF_FLAG){
 				fwrite(c_data, expected_bytes, 1, fp);
+				
+				fprintf(print_fd, "Client sent EOF. File write success\n");
+			}else if (*c == HASH_PAYLOAD){
+				//Open the file for reading
+				if (fp != NULL){
+					fclose(fp);
+					fp = NULL;
+				}
+				fp = fopen(fp_meta->name, "r");
+
+				//unpack_hash malloc's memory for client_hash
+				char *client_hash = unpack_hash_packet(c);
+				char *local_hash = hash_file(fp);
+				fprintf(print_fd, "%s\tClient copy\n", client_hash);
+				fprintf(print_fd, "%s\tLocal copy\n", local_hash);
+				//Compare hashes
+				if (strcmp(client_hash, local_hash) == 0){
+					fprintf(print_fd, "Hashes match successfully\n");
+				}else{
+					fprintf(print_fd, "Hashes do not match! File corrupted\n");
+				}
+				//Free strings
+				if (client_hash != NULL){
+					free(client_hash);
+					client_hash = NULL;
+				}
+				if (local_hash != NULL){
+					free(local_hash);
+					local_hash = NULL;
+				}
+			}else if (*c == NEXT_FLAG){
 				//New file may be opened before connection closes
 				if (fp_meta != NULL){
 					free_metadata(fp_meta);
@@ -269,22 +299,11 @@ int main(int argc, char *argv[])
 					fclose(fp);
 					fp = NULL;
 				}
-				fprintf(print_fd, "Client sent EOF. File write success\n");
-				//hash_uint32(hash_buff, *c, hash_count++);
+				fprintf(print_fd, "Client is preparing next file...\n");
 			}else{
 				fprintf(print_fd, "Received empty or corrupted packet. Ignoring..\n");
 				continue;
 			}
-			/*
-			 * Hashing disabled for testing
-			if (size_message == HASH_PAYLOAD){
-				if (!compare_hash(hash_buff, c)){
-					fprintf(print_fd, "File corruption detected. File hash mismatch. Please retry transfer. %x\n", hash_buff[hashes - 1]);
-				}else{
-					fprintf(print_fd, "Matching file hash success: %x\n", hash_buff[hashes - 1]);
-				}
-			}
-			*/
 		}
 
 
@@ -309,9 +328,6 @@ int main(int argc, char *argv[])
 
 		//make sure log is written to disk
 		fflush(print_fd);
-
-		hash_count = 0;
-		hashes = 0;
 	}
 
 	if (session_id_list != NULL){

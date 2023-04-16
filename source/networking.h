@@ -26,20 +26,17 @@
  */
 
 #define MAXLEN 2048
-#define PAYLOAD_FLAG 1
-#define SIZE_FLAG 2
-#define EOF_FLAG 3
-#define HASH_FLAG 4
 
 #define PAYLOAD 0x10000000
 #define DIFF_SIZE 0x20000000
-#define END_FLAG 0x30000000
+#define EOF_FLAG 0x30000000
 #define HASH_PAYLOAD 0x40000000
 #define SESSION_ID_FLAG 0x50000000
 #define META_FLAG 0x60000000
 #define END_SESSION 0x70000000
 #define RETRY_FLAG 0x8000000
 #define SESSION_START 0x90000000
+#define NEXT_FLAG 0xA0000000
 #define CORRUPTED_FLAG 0xF0000000
 #define REMOVE_FLAG 0x0FFFFFFF
 #define EMPTY_DATA 0x00000000
@@ -73,14 +70,6 @@ struct ftp_sock{
 	int max_pending_connections;
 };
 
-//Separates data and flag, returns data
-uint32_t *decapsulate(uint32_t *data, uint32_t *flag)
-{
-	*flag = 0xF0000000 & *data;
-	*data = *data & REMOVE_FLAG;
-	return data;
-}
-
 //Generic function to read a specified buffer size, returns amount read
 uint32_t read_buffer(int s, uint32_t *buffer, long buffer_size)
 {	
@@ -101,22 +90,40 @@ uint32_t fatal_error_hangup(int sock, uint32_t *buffer, long buffer_size, uint32
 	return FTP_FALSE;
 }
 
-//Reserve the 1st 4 bits for type of data info, last 24 for payload (4 currently unused, in same byte as info flags)
-uint32_t encapsulate(char type, uint32_t data)
+void build_hash_packet(char *hash_str, uint32_t *packet, int session_mask)
 {
-	if (type == PAYLOAD_FLAG){
-		data = data | PAYLOAD;
-	}else if (type == SIZE_FLAG){
-		data = data | DIFF_SIZE;
-	}else if (type == EOF_FLAG){
-		data = data | END_FLAG;
-	}else if (type == HASH_FLAG){
-		data = data | HASH_PAYLOAD;
-	}else{
-		return data | CORRUPTED_FLAG;
+	*packet = HASH_PAYLOAD; /* | session_mask; */
+
+	int strlen_hash = (strlen(hash_str) + 1);
+	*(++packet) = strlen_hash;
+
+	//Cast packet to a char * to copy the rest of the hash
+	packet++;
+	char *packet_char = (char *) packet;
+
+	for (int i = 0; i < strlen_hash; i++){
+		*(packet_char) = *hash_str;
+		packet_char++;
+		hash_str++;
 	}
-	
-	return data;
+	*packet_char = '\0';
+}
+
+char *unpack_hash_packet(uint32_t *packet)
+{
+	//Hash length should be 256 bits, but represented in hex is 64 bytes + the null terminator
+	int hash_str_length = *(++packet);
+
+	//Cast packet to char *
+	(++packet);
+	char *packet_str = (char *) packet;
+	char *hash_str = (char *) malloc(hash_str_length);
+
+	for (int i = 0; i < hash_str_length; i++){
+		*(hash_str + i) = *(packet_str + i);
+	}
+	*(hash_str + (hash_str_length - 1)) = '\0';
+	return hash_str;
 }
 
 #endif
