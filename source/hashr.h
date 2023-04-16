@@ -77,8 +77,12 @@ void hash_uint32(uint32_t *buffer, uint32_t data, uint32_t offset)
 
 //In bits
 #define SIZE_HASH 256
+#define SIZE_HASH_BYTES SIZE_HASH / 8
 #define SIZE_HASHABLE 32
+#define SIZE_HASHABLE_BYTES SIZE_HASHABLE / 8
 #define NUM_HASHABLES SIZE_HASH / SIZE_HASHABLE
+#define OFF 0
+#define ON 1
 
 typedef uint32_t hashable;
 
@@ -103,14 +107,117 @@ long get_file_size(FILE *fp)
 	return size;
 }
 
+void initialize_state(hashable *hash_state)
+{
+	for (int i = 0; i < NUM_HASHABLES; i++){
+		*(hash_state + i) = state[i];
+	}
+}
+
+void compress_state_and_data(hashable *hash_state, hashable *f_data)
+{
+	switch (NUM_HASHABLES){
+		case 8:
+			hash_state[7] = hash_state[7] ^ (f_data[7] & ((f_data[1] | state[8]) ^ (f_data[4] ^ state[16])));
+		case 7:			
+			hash_state[6] = hash_state[6] | (f_data[6] | (f_data[4] & state[13]));
+		case 6:
+			hash_state[5] = hash_state[5] & ((f_data[5] ^ state[15]) & f_data[0]);
+		case 5:
+			hash_state[4] = hash_state[4] & ~(f_data[4]);
+		case 4:
+			hash_state[3] = hash_state[3] | ~((f_data[3] & state[12]) | f_data[6]);
+		case 3:
+			hash_state[2] = hash_state[2] ^ ~(f_data[2]);
+		case 2:
+			hash_state[1] = hash_state[1] ^ (f_data[1] & ((f_data[3] | state[18])));
+		case 1:
+			hash_state[0] = hash_state[0] | (f_data[0] | (f_data[5] ^ state[20]));
+		default:
+			break;
+	}
+}
+
+void scramble1(hashable *hash_state)
+{ 
+	hashable temp[NUM_HASHABLES];
+	for (int i = 0; i < NUM_HASHABLES; i++)
+		temp[i] = hash_state[i];
+
+	hash_state[0] = temp[2];
+	hash_state[1] = temp[7];
+	hash_state[2] = temp[3];
+	hash_state[3] = temp[1];
+	hash_state[4] = temp[5];
+	hash_state[5] = temp[0];
+	hash_state[6] = temp[4];
+	hash_state[7] = temp[6];
+}
+
+void scramble2(hashable *hash_state)
+{ 
+	hashable temp[NUM_HASHABLES];
+	for (int i = 0; i < NUM_HASHABLES; i++)
+		temp[i] = hash_state[i];
+
+	hash_state[0] = temp[3];
+	hash_state[1] = temp[1];
+	hash_state[2] = temp[2];
+	hash_state[3] = temp[0];
+	hash_state[4] = temp[6];
+	hash_state[5] = temp[5];
+	hash_state[6] = temp[7];
+	hash_state[7] = temp[4];
+}
+
+void pad_data(hashable *file_data, long remainder_size)
+{
+	long size_initialized = (SIZE_HASHABLE_BYTES * NUM_HASHABLES) - remainder_size;
+	if (size_initialized < (SIZE_HASHABLE_BYTES * (NUM_HASHABLES - 1)))
+		file_data[NUM_HASHABLES - 1] = (hashable) remainder_size;
+}
+
 char *hash_file(FILE *fp)
 {
 	//Needs space for string terminator
-	char final_hash[SIZE_HASH + 1];
+	char final_hash[SIZE_HASH_BYTES + 1];
 	long file_size = get_file_size(fp);
-	long remainder_bytes_size = file_size % SIZE_HASH;
+	long remainder_bytes_size = file_size % (SIZE_HASHABLE_BYTES * NUM_HASHABLES);
 	hashable hash[NUM_HASHABLES];
+	hashable file_data[NUM_HASHABLES];
+	int shuffle_state = 0;
 	
+	initialize_state(hash);
+	
+	while ((file_size - ftell(fp)) < remainder_bytes_size){
+		fread(file_data, SIZE_HASHABLE_BYTES, NUM_HASHABLES, fp);
+		compress_state_and_data(hash, file_data);
+		if (shuffle_state == ON){
+			scramble2(hash);
+			shuffle_state = OFF;
+		}else{
+			scramble1(hash);
+			shuffle_state = ON;
+		}
+	}
+
+	fread(file_data, 1, remainder_bytes_size, fp); 
+	pad_data(file_data, remainder_bytes_size);
+
+	compress_state_and_data(hash, file_data);
+	if (shuffle_state == ON){
+		scramble2(hash);
+		shuffle_state = OFF;
+	}else{
+		scramble1(hash);
+		shuffle_state = ON;
+	}
+	
+	snprintf(final_hash, SIZE_HASH_BYTES + 1, "%x%x%x%x%x%x%x%x", hash[0], hash[1],
+	                          hash[2], hash[3], hash[4], hash[5], hash[6], hash[7]);
+	//debug
+	printf("%s\n", final_hash);
+	return final_hash;
 }
 
 #endif
