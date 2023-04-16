@@ -81,7 +81,7 @@ void hash_uint32(uint32_t *buffer, uint32_t data, uint32_t offset)
 #define SIZE_HASHABLE 32
 #define SIZE_HASHABLE_BYTES SIZE_HASHABLE / 8
 #define NUM_HASHABLES SIZE_HASH / SIZE_HASHABLE
-#define CHAR_HEX_TO_BYTES 4
+#define CHAR_HEX_TO_BYTES 2
 #define OFF 0
 #define ON 1
 
