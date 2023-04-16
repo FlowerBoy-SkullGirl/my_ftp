@@ -6,7 +6,7 @@ SERV_PID=$!
 cd ..
 ./client 127.0.0.1 testing/small_test_file
 
-pkill $SERV_PID
+kill $SERV_PID
 
 cd testing
 
