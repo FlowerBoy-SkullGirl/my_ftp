@@ -1,0 +1,8 @@
+Tests can be run by invoking 'make run_tests'
+You may need to run 'make drivers' first if you don't have hash_driver compiled.
+
+Hash_Driver:
+	Takes small_test_file and small_test_file corrupted and tests their hash to ensure that the hashing algorithm can detect differences between the two files.
+
+checksum_small_test.sh:
+	Is a script that runs the server and client without the -q option and subsequently checks to see if the file transmitted(small_test_file) was transferred successfully without corruption by comparing sha256sum output. 

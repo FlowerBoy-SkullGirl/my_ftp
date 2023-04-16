@@ -2,13 +2,17 @@
 #include "hashr.h"
 #include <string.h>
 
+#define MAX 256
+
 int main()
 {
-	FILE *fp = fopen("../testing/small_test_file", "r");
-	FILE *fp_corrupt = fopen("../testing/small_test_file_corrupted", "r");
+	char filen[MAX] = "../testing/small_test_file";
+	char filen_corrupt[MAX] = "../testing/small_test_file_corrupted";
+	FILE *fp = fopen(filen, "r");
+	FILE *fp_corrupt = fopen(filen_corrupt, "r");
 
-	printf("%s\tsmall_test_file\n", hash_file(fp));
-	printf("%s\tsmall_test_file_corrupted\n", hash_file(fp_corrupt));
+	printf("%s\ttest file\n", hash_file(fp));
+	printf("%s\ttest file corrupted\n", hash_file(fp_corrupt));
 
 	if (strcmp(hash_file(fp), hash_file(fp_corrupt)) == 0){
 		printf("Did not find the present corruption\n");
