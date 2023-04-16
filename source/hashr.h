@@ -81,6 +81,7 @@ void hash_uint32(uint32_t *buffer, uint32_t data, uint32_t offset)
 #define SIZE_HASHABLE 32
 #define SIZE_HASHABLE_BYTES SIZE_HASHABLE / 8
 #define NUM_HASHABLES SIZE_HASH / SIZE_HASHABLE
+#define CHAR_HEX_TO_BYTES 4
 #define OFF 0
 #define ON 1
 
@@ -180,7 +181,7 @@ void pad_data(hashable *file_data, long remainder_size)
 char *hash_file(FILE *fp)
 {
 	//Needs space for string terminator
-	char final_hash[SIZE_HASH_BYTES + 1];
+	char *final_hash = (char *) malloc((SIZE_HASH_BYTES * CHAR_HEX_TO_BYTES) + 1);
 	long file_size = get_file_size(fp);
 	long remainder_bytes_size = file_size % (SIZE_HASHABLE_BYTES * NUM_HASHABLES);
 	hashable hash[NUM_HASHABLES];
@@ -201,6 +202,9 @@ char *hash_file(FILE *fp)
 		}
 	}
 
+	for (int i = 0; i < NUM_HASHABLES; i++)
+		file_data[i] = 0;
+
 	fread(file_data, 1, remainder_bytes_size, fp); 
 	pad_data(file_data, remainder_bytes_size);
 
@@ -213,10 +217,8 @@ char *hash_file(FILE *fp)
 		shuffle_state = ON;
 	}
 	
-	snprintf(final_hash, SIZE_HASH_BYTES + 1, "%x%x%x%x%x%x%x%x", hash[0], hash[1],
+	snprintf(final_hash, (SIZE_HASH_BYTES * CHAR_HEX_TO_BYTES) + 1, "%08x%08x%08x%08x%08x%08x%08x%08x", hash[0], hash[1],
 	                          hash[2], hash[3], hash[4], hash[5], hash[6], hash[7]);
-	//debug
-	printf("%s\n", final_hash);
 	return final_hash;
 }
 
