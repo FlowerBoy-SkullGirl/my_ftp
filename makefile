@@ -1,25 +1,25 @@
-client: source/client.c
+HEADERS := source/$(wildcard *.h)
+BINARIES := server/serv server/server_gui client testing/hash_driver
+TARGETS := client serv server_gui drivers
+
+all: $(TARGETS)
+
+client: source/client.c $(HEADERS)
 	gcc -o client source/client.c -g
 
-serv: source/server.c
+serv: source/server.c $(HEADERS)
 	gcc -o server/serv source/server.c -g
 
-server_gui: source/server_gui.c
+server_gui: source/server_gui.c $(HEADERS)
 	gcc -o server/server_gui source/server_gui.c -g -lncurses
 
-all: source/server.c source/client.c source/server_gui.c
-	gcc -o server/server_gui source/server_gui.c -g -lncurses
-	gcc -o server/serv source/server.c -g
-	gcc -o client source/client.c -g
-drivers: source/hash_driver.c
+
+drivers: source/hash_driver.c $(HEADERS)
 	gcc -o testing/hash_driver source/hash_driver.c -g
 
 run_tests:
 	cd testing ; ./checksum_small_test.sh
 	cd testing ; ./hash_driver
 
-remove_all:
-	rm server/serv server/server_gui client
-
 clean: 
-	rm *.out ; rm server/*.out
+	rm $(BINARIES)

@@ -9,71 +9,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
-#define LENGTH_BUFFER 4 //in terms of how many data fit inside
-#define SHIFT_DISTANCE 1
-#define REMAINDER_MASK_LEFT 0x80000000
-#define REMAINDER_MASK_RIGHT 0x00000001
-#define SIZE_DATA 32
-
-/*
- * Takes a pointer to a buffer, data to be hashed, and a counter for where
- * the data should be offset relative to the significant bits in the buffer
- * Changes the contents of buffer directly and returns no value
- * Alternates between AND and XOR operations and left and right shifts
- */
-
-void hash_uint32(uint32_t *buffer, uint32_t data, uint32_t offset)
-{
-	uint32_t align = offset % LENGTH_BUFFER;
-	uint32_t remainder[LENGTH_BUFFER - 1];
-	//The buffer has been iterated an odd number of times
-	if ((offset / LENGTH_BUFFER) % 2){
-		if (align % 2){
-			*(buffer + align) = *(buffer + align) & data;
-		}else{
-			*(buffer + align) = *(buffer + align) ^ data;
-		}
-		/*
-		 * Shift left, starting at least significant and moving more significant
-		 * Collect the remainder of each section of memory and append it to the
-		 * more significant block after it has been shifted
-		 * Least significant shift distance-bits are truncated
-		 */
-		for (int i = LENGTH_BUFFER - 1; i >=0; i--){
-			if (i > 0){
-				//only 3 total remainder values, but 4 i values
-				remainder[i - 1] = *(buffer + i) & REMAINDER_MASK_LEFT;
-				remainder[i - 1] = remainder[i - 1] >> (SIZE_DATA - 1);
-			}
-			*(buffer + i) = *(buffer + i) << SHIFT_DISTANCE;
-			if (i < (LENGTH_BUFFER - 1)){
-				*(buffer + i) = *(buffer + i) | remainder[i];
-			}
-		}
-	}else{
-		if (align % 2){
-			*(buffer + align) = *(buffer + align) ^ data;
-		}else{
-			*(buffer + align) = *(buffer + align) & data;
-		}
-		/*
-		 * Shift the result, starting from the most significant 32-bit block
-		 * Collect the remainder of each section of memory and append it to the
-		 * less significant block after it has been shifted
-		 * Most significant shift distance-bits are truncated
-		 */
-		for (int i = 0; i < LENGTH_BUFFER; i++){
-			if (i < LENGTH_BUFFER - 1){
-				remainder[i] = *(buffer + i) & REMAINDER_MASK_RIGHT;
-				remainder[i] = remainder[i] << (SIZE_DATA - 1);
-			}
-			*(buffer + i) = *(buffer + i) >> SHIFT_DISTANCE;
-			if (i > 0){
-				*(buffer + i) = *(buffer + i) | remainder[i - 1];
-			}
-		}
-	}
-}
 
 //In bits
 #define SIZE_HASH 256
@@ -84,6 +19,14 @@ void hash_uint32(uint32_t *buffer, uint32_t data, uint32_t offset)
 #define CHAR_HEX_TO_BYTES 2
 #define OFF 0
 #define ON 1
+#define LEFTMOST_3_BITS   0xE0000000
+#define RIGHTMOST_29_BITS 0x1FFFFFFF
+#define LEFTMOST_28_BITS  0xFFFFFFF0 
+#define RIGHTMOST_4_BITS  0x0000000F
+#define LEFT_SHIFT_LENGTH 3
+#define LEFT_SHIFT_ADJUST_R SIZE_HASHABLE - LEFT_SHIFT_LENGTH
+#define RIGHT_SHIFT_LENGTH 4
+#define RIGHT_SHIFT_ADJUST_L SIZE_HASHABLE - RIGHT_SHIFT_LENGTH
 
 typedef uint32_t hashable;
 
@@ -159,6 +102,44 @@ void scramble2(hashable *hash_state)
 	hash_state[7] = temp[4];
 }
 
+void shift_state_left(hashable *hash_state)
+{
+	hashable temp[NUM_HASHABLES * 2];
+	
+	int j = 0;
+	for (int i = 0; i < NUM_HASHABLES; i++){
+		temp[j++] = (hash_state[i] & LEFTMOST_3_BITS) >> LEFT_SHIFT_ADJUST_R;
+		temp[j++] = (hash_state[i] & RIGHTMOST_29_BITS) << LEFT_SHIFT_LENGTH;
+	}
+	//Each hash will be composed of its rightmost bits shifted left and appended with its neighbors lefmost bits
+	j = 1;
+	for (int i = 0; i < NUM_HASHABLES - 1; i++){
+		hash_state[i] = temp[j] | temp[j+1];
+		j+=2;
+	}
+	//The last hash will borrow bits from the first hash instead of its neighbor
+	hash_state[NUM_HASHABLES - 1] = temp[(NUM_HASHABLES * 2) - 1] | temp[0];
+}
+
+void shift_state_right(hashable *hash_state)
+{	
+	hashable temp[NUM_HASHABLES * 2];
+	
+	int j = 0;
+	for (int i = 0; i < NUM_HASHABLES; i++){
+		temp[j++] = (hash_state[i] & LEFTMOST_28_BITS) >> RIGHT_SHIFT_LENGTH;
+		temp[j++] = (hash_state[i] & RIGHTMOST_4_BITS) << RIGHT_SHIFT_ADJUST_L;
+	}
+	//Each hash will be composed of its leftmost bit shifted right and appended with its neighbors rightmost bits
+	//The first hash will borrow bits from the last hash instead of its neighbor
+	hash_state[0] = temp[0] | temp[(NUM_HASHABLES * 2) - 1];
+	j = 1;
+	for (int i = 1; i < NUM_HASHABLES; i++){
+		hash_state[i] = temp[j] | temp[j+1];
+		j+=2;
+	}
+}
+
 void pad_data(hashable *file_data, long remainder_size)
 {
 	long size_initialized = (SIZE_HASHABLE_BYTES * NUM_HASHABLES) - remainder_size;
@@ -174,17 +155,19 @@ char *hash_file(FILE *fp)
 	long remainder_bytes_size = file_size % (SIZE_HASHABLE_BYTES * NUM_HASHABLES);
 	hashable hash[NUM_HASHABLES];
 	hashable file_data[NUM_HASHABLES];
-	int shuffle_state = 0;
+	int shuffle_state = OFF;
 	
 	initialize_state(hash);
 	
-	while ((file_size - ftell(fp)) < remainder_bytes_size){
+	while ((file_size - ftell(fp)) > remainder_bytes_size){
 		fread(file_data, SIZE_HASHABLE_BYTES, NUM_HASHABLES, fp);
 		compress_state_and_data(hash, file_data);
 		if (shuffle_state == ON){
+			shift_state_left(hash);
 			scramble2(hash);
 			shuffle_state = OFF;
 		}else{
+			shift_state_right(hash);
 			scramble1(hash);
 			shuffle_state = ON;
 		}
@@ -198,9 +181,11 @@ char *hash_file(FILE *fp)
 
 	compress_state_and_data(hash, file_data);
 	if (shuffle_state == ON){
+		shift_state_left(hash);
 		scramble2(hash);
 		shuffle_state = OFF;
 	}else{
+		shift_state_right(hash);
 		scramble1(hash);
 		shuffle_state = ON;
 	}

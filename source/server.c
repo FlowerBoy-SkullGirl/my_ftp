@@ -18,10 +18,6 @@
 #define SUCCESS 0
 #define FAIL 1
 
-//Global variable used to store file hash and verify integrity	
-uint32_t hash_count = 0;
-int hashes = 0;
-
 int handshake_server(int s, uint32_t *buffer, struct queue *qp, int *session_id_list, FILE *print_fd)
 {
 	int offset_major_byte = 1;
@@ -58,25 +54,6 @@ int handshake_server(int s, uint32_t *buffer, struct queue *qp, int *session_id_
 
 	return FTP_TRUE;
 }
-
-/*
-//Compares hash from client to local hash, returns 1 on success
-int compare_hash(uint32_t *hash_buff, uint32_t *c)
-{
-	//If too large, discard extra
-	if (hash_buff[hashes] > REMOVE_FLAG)
-		hash_buff[hashes] = hash_buff[hashes] & REMOVE_FLAG;
-	//DEBUGGING
-	fprintf(print_fd, "Hashes: %x, %x\n", hash_buff[hashes], *c);
-	if (hash_buff[hashes] == *c){
-		hashes++;
-		return 1;
-	}else{
-		hashes++;
-		return 0;
-	}
-}
-*/
 
 //Takes argv and an index to parse cli arguments, convert them to int, and set the appropriate values in the socket struct
 int set_cli_parameter(char **arg, int i, struct ftp_sock *sock_params, FILE **print_fd)
@@ -188,10 +165,6 @@ int main(int argc, char *argv[])
 		uint32_t *c = (uint32_t *)malloc(PACKET_BYTES);
 		//Remove any stagnant garbage from these memory spaces
 		*c = *c & 0;
-		uint32_t *hash_buff = (uint32_t *)malloc(sizeof(uint32_t) * 4);
-		for (int i = 0; i < LENGTH_BUFFER; i++)
-			hash_buff[i] = hash_buff[i] & 0;
-
 		if (c == NULL)
 			continue;
 
@@ -317,10 +290,6 @@ int main(int argc, char *argv[])
 			c = NULL;
 		}
 		
-		if (hash_buff != NULL){
-			free(hash_buff);
-			hash_buff = NULL;
-		}
 		if (fp_meta != NULL){
 			free_metadata(fp_meta);
 			fp_meta = NULL;
