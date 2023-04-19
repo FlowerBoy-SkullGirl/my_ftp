@@ -70,6 +70,19 @@ void compress_state_and_data(hashable *hash_state, hashable *f_data)
 	hash_state[7] = hash_state[7] ^ (f_data[7] & ((f_data[1] | state[8]) ^ (f_data[4] ^ state[16])));
 }
 
+void compress_state_and_data2(hashable *hash_state, hashable *f_data)
+{
+	hash_state[0] = hash_state[0] | (f_data[0] | ((f_data[6] ^ state[20]) & (f_data[2] & state[19])));
+	hash_state[1] = hash_state[1] ^ (f_data[1] & ((f_data[3] | state[18] ^ f_data[7])));
+	hash_state[2] = hash_state[2] ^ ~(f_data[2] | (f_data[4] & state[32]));
+	hash_state[3] = hash_state[3] | ~((f_data[3] & state[12]) | f_data[6] ^ f_data[4]);
+	hash_state[4] = hash_state[4] & ~((f_data[4]) | (f_data[7] & f_data[0] ^ state[53]));
+	hash_state[5] = hash_state[5] & ((f_data[5] ^ state[15]) & (f_data[0] ^ f_data[2]));
+	hash_state[6] = hash_state[6] | ((f_data[6] & f_data[1]) | (f_data[4] & state[13]));
+	hash_state[7] = hash_state[7] ^ (f_data[7] & ((f_data[1] | state[8]) ^ (f_data[5] ^ state[16])));
+}
+
+
 void scramble1(hashable *hash_state)
 { 
 	hashable temp[NUM_HASHABLES];
