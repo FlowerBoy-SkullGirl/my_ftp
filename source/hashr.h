@@ -19,6 +19,7 @@
 #define CHAR_HEX_TO_BYTES 2
 #define OFF 0
 #define ON 1
+#define COMPRESSION_ROUNDS 32
 #define LEFTMOST_3_BITS   0xE0000000
 #define RIGHTMOST_29_BITS 0x1FFFFFFF
 #define LEFTMOST_28_BITS  0xFFFFFFF0 
@@ -106,13 +107,13 @@ void scramble2(hashable *hash_state)
 		temp[i] = hash_state[i];
 
 	hash_state[0] = temp[3];
-	hash_state[1] = temp[1];
-	hash_state[2] = temp[2];
-	hash_state[3] = temp[0];
+	hash_state[1] = temp[0];
+	hash_state[2] = temp[4];
+	hash_state[3] = temp[1];
 	hash_state[4] = temp[6];
-	hash_state[5] = temp[5];
+	hash_state[5] = temp[3];
 	hash_state[6] = temp[7];
-	hash_state[7] = temp[4];
+	hash_state[7] = temp[2];
 }
 
 void shift_state_left(hashable *hash_state)
@@ -174,7 +175,8 @@ char *hash_file(FILE *fp)
 	
 	while ((file_size - ftell(fp)) > remainder_bytes_size){
 		fread(file_data, SIZE_HASHABLE_BYTES, NUM_HASHABLES, fp);
-		compress_state_and_data(hash, file_data);
+for(int i = 0; i < COMPRESSION_ROUNDS; i++){
+		compress_state_and_data2(hash, file_data);
 		if (shuffle_state == ON){
 			shift_state_left(hash);
 			scramble2(hash);
@@ -184,15 +186,16 @@ char *hash_file(FILE *fp)
 			scramble1(hash);
 			shuffle_state = ON;
 		}
+}
 	}
-
 	for (int i = 0; i < NUM_HASHABLES; i++)
 		file_data[i] = 0;
 
 	fread(file_data, 1, remainder_bytes_size, fp); 
 	pad_data(file_data, remainder_bytes_size);
 
-	compress_state_and_data(hash, file_data);
+for(int i = 0; i < COMPRESSION_ROUNDS; i++){
+	compress_state_and_data2(hash, file_data);
 	if (shuffle_state == ON){
 		shift_state_left(hash);
 		scramble2(hash);
@@ -203,6 +206,7 @@ char *hash_file(FILE *fp)
 		shuffle_state = ON;
 	}
 	
+}
 	snprintf(final_hash, (SIZE_HASH_BYTES * CHAR_HEX_TO_BYTES) + 1, "%08x%08x%08x%08x%08x%08x%08x%08x", hash[0], hash[1],
 	                          hash[2], hash[3], hash[4], hash[5], hash[6], hash[7]);
 	return final_hash;
