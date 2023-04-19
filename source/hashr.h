@@ -117,26 +117,14 @@ void initialize_state(hashable *hash_state)
 
 void compress_state_and_data(hashable *hash_state, hashable *f_data)
 {
-	switch (NUM_HASHABLES){
-		case 8:
-			hash_state[7] = hash_state[7] ^ (f_data[7] & ((f_data[1] | state[8]) ^ (f_data[4] ^ state[16])));
-		case 7:			
-			hash_state[6] = hash_state[6] | (f_data[6] | (f_data[4] & state[13]));
-		case 6:
-			hash_state[5] = hash_state[5] & ((f_data[5] ^ state[15]) & f_data[0]);
-		case 5:
-			hash_state[4] = hash_state[4] & ~(f_data[4]);
-		case 4:
-			hash_state[3] = hash_state[3] | ~((f_data[3] & state[12]) | f_data[6]);
-		case 3:
-			hash_state[2] = hash_state[2] ^ ~(f_data[2]);
-		case 2:
-			hash_state[1] = hash_state[1] ^ (f_data[1] & ((f_data[3] | state[18])));
-		case 1:
-			hash_state[0] = hash_state[0] | (f_data[0] | (f_data[5] ^ state[20]));
-		default:
-			break;
-	}
+	hash_state[0] = hash_state[0] | (f_data[0] | (f_data[5] ^ state[20]));
+	hash_state[1] = hash_state[1] ^ (f_data[1] & ((f_data[3] | state[18])));
+	hash_state[2] = hash_state[2] ^ ~(f_data[2]);
+	hash_state[3] = hash_state[3] | ~((f_data[3] & state[12]) | f_data[6]);
+	hash_state[4] = hash_state[4] & ~(f_data[4]);
+	hash_state[5] = hash_state[5] & ((f_data[5] ^ state[15]) & f_data[0]);
+	hash_state[6] = hash_state[6] | (f_data[6] | (f_data[4] & state[13]));
+	hash_state[7] = hash_state[7] ^ (f_data[7] & ((f_data[1] | state[8]) ^ (f_data[4] ^ state[16])));
 }
 
 void scramble1(hashable *hash_state)
