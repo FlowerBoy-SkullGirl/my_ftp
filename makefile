@@ -17,9 +17,10 @@ server_gui: source/server_gui.c $(HEADERS)
 drivers: source/hash_driver.c $(HEADERS)
 	gcc -o testing/hash_driver source/hash_driver.c -g
 
-run_tests:
+testing: drivers
 	cd testing ; ./checksum_small_test.sh
 	cd testing ; ./hash_driver
 
 clean: 
 	rm $(BINARIES)
+	find server/ -maxdepth 1 -type f -delete
