@@ -13,4 +13,7 @@ Client: command [server-ipv4] [--options] /path/to/file [/path/to/more/files] ..
 	Pass --full-paths to send the paths of the files to the server.
 	A good way to send an entire directory with bash is:
 		./client address --full-paths $(find [dir] -type f)
+		and if there are any spaces or special characters in the file names
+		try [ | awk '{print "\"" $0 "\""}' ] after the find command to insert
+		quotes around the filenames.
 

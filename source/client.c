@@ -7,12 +7,13 @@
 #include <arpa/inet.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <errno.h>
 #include "hashr.h" //Hash algorithm for validating file integrity
 #include "networking.h" //Defines for flags. Functions for send and receive
 #include "session_queue.h"
 #include "file_metadata.h"
 
-#define MAXLEN_FILE_LIST 256
+#define MAXLEN_FILE_LIST MAXLEN
 #define MAX_RETRY_CONNECT 20
 
 //Struct of inet_addr for reference
@@ -130,12 +131,7 @@ struct filen_stack *push_filen(struct filen_stack *stack, char *filen)
 	}else{
 		struct filen_stack *next = init_stack();
 		next->prev = stack;
-		next->filen = (char *) malloc(strlen(filen) + 1);
-		if (next->filen == NULL){
-			fprintf(stderr, "Could not alloc filen space on stack\n");
-			exit(FTP_FALSE);
-		}
-		strcpy(next->filen, filen);
+		next = push_filen(next, filen);
 		return next;
 	}
 	return stack;
@@ -220,7 +216,8 @@ int main(int argc, char *argv[]){
 	for (int i = 0; i < num_of_files; i++){
 		fp[i] = fopen(j->filen, "rb");
 		if(fp[i] == NULL){
-			fprintf(stderr, "Could not open file of index: %d\n", i);
+			fprintf(stderr, "Could not open file %s of index: %d\n", j->filen, i);
+			perror("File error:");
 			exit(FTP_FALSE);
 		}
 		if (j->prev != NULL)
