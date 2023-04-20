@@ -160,7 +160,6 @@ struct filen_stack *pop_filen(struct filen_stack *stack)
 
 struct filen_stack *parse_arg(char **argv, struct filen_stack *stack, struct flags *f, int *num_of_files, int i)
 {
-	printf("Parsing arg: %d\n", i);
 	if (strcmp(argv[i], "--no-hash") == 0){
 		f->send_hash = FTP_FALSE;
 		printf("Disabling hash.\n");
@@ -168,7 +167,6 @@ struct filen_stack *parse_arg(char **argv, struct filen_stack *stack, struct fla
 		f->send_paths = FTP_TRUE;
 		printf("Filepaths enabled.\n");
 	}else{
-		printf("arg[%d]: %s\n", i, argv[i]);
 		stack = push_filen(stack, argv[i]);
 		(*num_of_files)++;
 	}

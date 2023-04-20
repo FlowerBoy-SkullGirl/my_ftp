@@ -11,4 +11,6 @@ Client: command [server-ipv4] [--options] /path/to/file [/path/to/more/files] ..
 	By default, pathname will not be preserved once sent over network
 	Pass --no-hash to not calculate and send a file hash to the server.
 	Pass --full-paths to send the paths of the files to the server.
+	A good way to send an entire directory with bash is:
+		./client address --full-paths $(find [dir] -type f)
 

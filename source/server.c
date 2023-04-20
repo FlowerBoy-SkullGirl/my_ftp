@@ -5,6 +5,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include "hashr.h" 
 #include "networking.h" //Most defines for flags are in this header
@@ -98,6 +99,46 @@ int set_cli_parameter(char **arg, int i, struct ftp_sock *sock_params, FILE **pr
 	return FAIL;
 }
 
+char *prepend_root(char *filen, char *path)
+{
+	char *filen_w_path = (char *) malloc(strlen(filen) + strlen(path) + 1);
+	int i = 0;
+	for (; i < strlen(path); i++){
+		*(filen_w_path + i) = *(path + i);
+	}
+	for (int j = 0; j < strlen(filen) + 1; j++){
+		*(filen_w_path + i + j) = *(filen + j);
+		//Overwrite prepended '/' on filename
+		if (j == 0 && filen[0] == '/')
+			i--;
+	}
+
+	free(filen);
+
+	return filen_w_path;
+}
+
+int make_paths(char *filen)
+{
+	char temp[MAXLEN];
+	int NOT_DIR = -1;
+	struct stat status = { 0 };
+	int dir_success = 0;
+	for (int i = 0; i < strlen(filen); i++)
+	{
+		if (filen[i] == '/'){
+			snprintf(temp, i + 1, "%s", filen);
+			if (stat(temp, &status) == NOT_DIR)
+				dir_success = mkdir(temp, 0700);
+			if (dir_success == NOT_DIR){
+				fprintf(stderr, "Could not open directory\n");
+				exit(FTP_FALSE);
+			}
+		}
+	}
+	return FTP_TRUE;
+}
+
 int main(int argc, char *argv[])
 {
 	struct sockaddr_in addrport, addrcli;
@@ -155,6 +196,8 @@ int main(int argc, char *argv[])
 	fprintf(print_fd, "Socket bound..\n");
 	
 	FILE *fp;
+	//path where all files are to be written
+	char *f_path = "./";
 
 	struct queue *qp = queue_root();
 	//be sure to free this later
@@ -214,6 +257,8 @@ int main(int argc, char *argv[])
 			}
 			else if (*c == META_FLAG){
 				fp_meta = pack_metadata_packet(c);
+				fp_meta->name = prepend_root(fp_meta->name, f_path);
+				make_paths(fp_meta->name);
 				//Open file
 				fp = fopen(fp_meta->name, "wb");
 				if(fp == NULL){
