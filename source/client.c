@@ -25,6 +25,16 @@
 	}
 */	
 
+struct flags{
+	char send_hash;
+	char send_paths;
+};
+
+struct filen_stack{
+	char *filen;
+	struct filen_stack *prev;
+};
+
 int send_metadata(int sockid, struct metadata file_meta, uint32_t *buffer, uint32_t session_mask)
 {
 	if (!build_metadata_packet(file_meta, buffer, session_mask)){
@@ -98,15 +108,85 @@ int send_arr(int sockid, FILE *fp, uint32_t *c)
 	return endf - ftell(fp);
 }
 
+struct filen_stack *init_stack()
+{
+	struct filen_stack *stack = (struct filen_stack *) malloc(sizeof(struct filen_stack));
+	stack->prev = NULL;
+	stack->filen = NULL;
+
+	return stack;
+}
+
+struct filen_stack *push_filen(struct filen_stack *stack, char *filen)
+{
+	if (stack->filen == NULL){
+		stack->filen = (char *) malloc(strlen(filen) + 1);
+		if (stack->filen == NULL){
+			fprintf(stderr, "Could not alloc filen space on stack\n");
+			exit(FTP_FALSE);
+		}
+		strcpy(stack->filen, filen);
+		return stack;
+	}else{
+		struct filen_stack *next = init_stack();
+		next->prev = stack;
+		next->filen = (char *) malloc(strlen(filen) + 1);
+		if (next->filen == NULL){
+			fprintf(stderr, "Could not alloc filen space on stack\n");
+			exit(FTP_FALSE);
+		}
+		strcpy(next->filen, filen);
+		return next;
+	}
+	return stack;
+}
+
+struct filen_stack *pop_filen(struct filen_stack *stack)
+{
+	struct filen_stack *root = NULL;
+	if (stack == NULL)
+		return NULL;
+	if (stack->prev != NULL){
+		root = stack->prev;
+	}
+	if (stack->filen != NULL){
+		free(stack->filen);
+		stack->filen = NULL;
+	}
+	free(stack);
+	
+	return root;
+}
+
+struct filen_stack *parse_arg(char **argv, struct filen_stack *stack, struct flags *f, int *num_of_files, int i)
+{
+	printf("Parsing arg: %d\n", i);
+	if (strcmp(argv[i], "--no-hash") == 0){
+		f->send_hash = FTP_FALSE;
+		printf("Disabling hash.\n");
+	}else if (strcmp(argv[i], "--full-paths") == 0){
+		f->send_paths = FTP_TRUE;
+		printf("Filepaths enabled.\n");
+	}else{
+		printf("arg[%d]: %s\n", i, argv[i]);
+		stack = push_filen(stack, argv[i]);
+		(*num_of_files)++;
+	}
+
+	return stack;
+}
+
 int main(int argc, char *argv[]){
 	struct sockaddr_in addrserv;
 	int sockid = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP);
 	char server_ip[MAXLEN];
 	char recieveded[MAXLEN];
-	char filen_list[MAXLEN_FILE_LIST][MAXLEN];
-	char filen[MAXLEN];
 	char buff[MAXLEN];
 	int num_of_files = 0;
+	struct flags fl;
+	fl.send_hash = FTP_TRUE;
+	fl.send_paths = FTP_FALSE;
+	struct filen_stack *filen_st = init_stack();
 
 	//Get ip, assign to str
 	if(argc < 2){
@@ -118,11 +198,12 @@ int main(int argc, char *argv[]){
 	
 	//Get file to transfer, assign filen
 	if(argc == 3){
-		strcpy(filen_list[0], argv[2]);
+		filen_st = push_filen(filen_st, argv[2]);
 		num_of_files++;
 	}else if(argc < 3){
 		puts("Enter the name of the file to be sent(with full path):");
-		scanf("%s", filen_list[0]);
+		scanf("%s", buff);
+		filen_st = push_filen(filen_st, buff);
 		num_of_files++;
 	}
 	else if(argc > 3){
@@ -131,19 +212,21 @@ int main(int argc, char *argv[]){
 			exit(FTP_FALSE);
 		}
 		for (int i = 2; i < argc; i++){
-			strcpy(filen_list[i-2], argv[i]);
-			num_of_files++;
+			filen_st = parse_arg(argv, filen_st, &fl, &num_of_files, i);
 		}
 	}
 
 	FILE **fp = (FILE **)malloc(sizeof(FILE *) * num_of_files);
 
+	struct filen_stack *j = filen_st;
 	for (int i = 0; i < num_of_files; i++){
-		fp[i] = fopen(filen_list[i], "rb");
+		fp[i] = fopen(j->filen, "rb");
 		if(fp[i] == NULL){
 			fprintf(stderr, "Could not open file of index: %d\n", i);
 			exit(FTP_FALSE);
 		}
+		if (j->prev != NULL)
+			j = j->prev;
 	}
 
 	//Sets the server address and port
@@ -198,13 +281,22 @@ int main(int argc, char *argv[]){
 	struct metadata *fp_meta[MAXLEN_FILE_LIST];
 	//Truncate file paths and build metadata structs
 	for (int i = 0; i < num_of_files; i++){
-		char *filen_nopath = truncate_file_path(filen_list[i]);
+		if (filen_st == NULL | filen_st->filen == NULL){
+			fprintf(stderr, "File stack is null, cannot build metadata\n");
+			exit(FTP_FALSE);
+		}
+		char *filen = NULL;
+		if (!fl.send_paths)
+			filen = truncate_file_path(filen_st->filen);
+		else
+			filen = filen_st->filen;
 		//Pack_File allocates memory, must free later with free_metadata
-		fp_meta[i] = pack_file_data(fp[i], filen_nopath);
+		fp_meta[i] = pack_file_data(fp[i], filen);
 		printf("Preparing metadata of file %s of size %d bytes\n", fp_meta[i]->name, fp_meta[i]->size);
 
-		if (filen_nopath != NULL)
-			free(filen_nopath);
+		if (filen != NULL && !fl.send_paths)
+			free(filen);
+		filen_st = pop_filen(filen_st);
 	}
 
 	//main loop
@@ -221,21 +313,24 @@ int main(int argc, char *argv[]){
 		}
 
 		//Send server the hash of the file
-		fprintf(stdout, "Sending hash to server.\n");
+		if (fl.send_hash){
+			fprintf(stdout, "Sending hash to server.\n");
 
-		//Hash_file malloc's memory for the string
-		char *file_hash = hash_file(fp[files_sent]);
-		memset(c, 0, PACKET_BYTES);
+			//Hash_file malloc's memory for the string
+			char *file_hash = hash_file(fp[files_sent]);
+			memset(c, 0, PACKET_BYTES);
 
-		build_hash_packet(file_hash, c, session_mask); 
-		send(sockid, c, PACKET_BYTES, 0);
+			build_hash_packet(file_hash, c, session_mask); 
+			send(sockid, c, PACKET_BYTES, 0);
 
-		//Free the hash string that is no longer needed
-		if (file_hash != NULL){
-			free(file_hash);
-			file_hash = NULL;
+			//Free the hash string that is no longer needed
+			if (file_hash != NULL){
+				free(file_hash);
+				file_hash = NULL;
+			}
+
 		}
-
+		
 		fclose(fp[files_sent]);
 		printf("File sent successfully\n");
 
