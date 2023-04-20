@@ -7,10 +7,8 @@ Server: requires no command line arguments to use default port 4414
 	Number of waiting connections can be specified with -c [number]
 	Can be run in quiet mode with -q which writes output to "serverlog"
 	-h for Help message
-Client: command [server-ipv4] /path/to/file [/path/to/more/files] ....
-	pathname will not be preserved once sent over network
+Client: command [server-ipv4] [--options] /path/to/file [/path/to/more/files] ....
+	By default, pathname will not be preserved once sent over network
+	Pass --no-hash to not calculate and send a file hash to the server.
+	Pass --full-paths to send the paths of the files to the server.
 
-Roughly 1.5 seconds per GB
-
-
-Todo: Improve the hashing algorithm to improve security and accuracy

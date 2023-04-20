@@ -100,3 +100,10 @@ session_id is a char value that is chosen by the append_queue() function by quer
 socket is an int that matches the sockid associated with the connection.
 queue *next points to the next session in the queue.
 
+flags (client.c)
+Keeps track of command line argument flags set for send_hash and send_paths which can be set with --no-hash and --full-paths, respectively.
+
+filen_stack
+An implementation of a stack for keeping track of filenames.
+filen points to a string.
+prev points to the struct beneath it on the stack.
